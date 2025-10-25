@@ -1,0 +1,22 @@
+#pragma once
+
+#include "sosnina_a_diff_count/common/include/common.hpp"
+#include "task/include/task.hpp"
+
+namespace sosnina_a_diff_count {
+
+class SosninaADiffCountMPI : public BaseTask {
+ public:
+  static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
+    return ppc::task::TypeOfTask::kMPI;
+  }
+  explicit SosninaADiffCountMPI(const InType &in);
+
+ private:
+  bool ValidationImpl() override;
+  bool PreProcessingImpl() override;
+  bool RunImpl() override;
+  bool PostProcessingImpl() override;
+};
+
+}  // namespace sosnina_a_diff_count
