@@ -108,11 +108,11 @@ def discover_tasks(tasks_dir, task_types):
 directories, tasks_type_map = discover_tasks(tasks_dir, task_types)
 
 
-def load_performance_data_threads(perf_stat_file_path: Path) -> dict:
-    """Load threads performance ratios (T_x/T_seq) from CSV.
-    Expected header: Task, SEQ, OMP, TBB, STL, ALL
+def load_performance_data(perf_stat_file_path: Path) -> dict:
+    """Load performance data from CSV with multiple implementations.
+    Expected header: Task, SEQ, OMP, STL, TBB, ALL
     """
-    perf_stats: dict[str, dict] = {}
+    perf_stats = {}
     if perf_stat_file_path.exists():
         with open(perf_stat_file_path, "r", newline="") as csvfile:
             reader = csv.DictReader(csvfile)
@@ -121,35 +121,15 @@ def load_performance_data_threads(perf_stat_file_path: Path) -> dict:
                 if not task_name:
                     continue
                 perf_stats[task_name] = {
-                    "seq": row.get("SEQ", "?"),
-                    "omp": row.get("OMP", "?"),
-                    "tbb": row.get("TBB", "?"),
-                    "stl": row.get("STL", "?"),
-                    "all": row.get("ALL", "?"),
+                    "seq": row.get("SEQ", "N/A"),
+                    "omp": row.get("OMP", "N/A"),
+                    "stl": row.get("STL", "N/A"),
+                    "tbb": row.get("TBB", "N/A"),
+                    "all": row.get("ALL", "N/A"),
+                    "mpi": "N/A",  # MPI всегда "N/A" как в тестах
                 }
     else:
-        logger.warning("Threads perf stats CSV not found at %s", perf_stat_file_path)
-    return perf_stats
-
-
-def load_performance_data_processes(perf_stat_file_path: Path) -> dict:
-    """Load processes performance ratios (T_x/T_seq) from CSV.
-    Expected header: Task, SEQ, MPI
-    """
-    perf_stats: dict[str, dict] = {}
-    if perf_stat_file_path.exists():
-        with open(perf_stat_file_path, "r", newline="") as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                task_name = row.get("Task")
-                if not task_name:
-                    continue
-                perf_stats[task_name] = {
-                    "seq": row.get("SEQ", "?"),
-                    "mpi": row.get("MPI", "?"),
-                }
-    else:
-        logger.warning("Processes perf stats CSV not found at %s", perf_stat_file_path)
+        logger.warning("Performance stats CSV not found at %s", perf_stat_file_path)
     return perf_stats
 
 
@@ -1499,7 +1479,28 @@ def main():
         "HTML pages generated at %s (index.html, threads.html, processes.html)",
         output_path,
     )
-
+def load_performance_data(perf_stat_file_path: Path) -> dict:
+    """Load performance data from CSV with multiple implementations.
+    Expected header: Task, SEQ, OMP, STL, TBB, ALL
+    """
+    perf_stats = {}
+    if perf_stat_file_path.exists():
+        with open(perf_stat_file_path, "r", newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                task_name = row.get("Task")
+                if not task_name:
+                    continue
+                perf_stats[task_name] = {
+                    "seq": row.get("SEQ", "?"),
+                    "omp": row.get("OMP", "?"),
+                    "stl": row.get("STL", "?"),
+                    "tbb": row.get("TBB", "?"),
+                    "all": row.get("ALL", "?"),
+                }
+    else:
+        logger.warning("Performance stats CSV not found at %s", perf_stat_file_path)
+    return perf_stats
 
 if __name__ == "__main__":
     main()

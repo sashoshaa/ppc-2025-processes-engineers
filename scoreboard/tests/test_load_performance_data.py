@@ -3,7 +3,7 @@ Tests for the load_performance_data function.
 """
 
 import csv
-from main import load_performance_data
+from main import load_performance_data_fixed  as load_performance_data
 
 
 class TestLoadPerformanceData:

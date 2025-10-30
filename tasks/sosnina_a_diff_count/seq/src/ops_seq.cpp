@@ -1,60 +1,50 @@
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
-
-#include <numeric>
-#include <vector>
-
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "util/include/util.hpp"
+#include <algorithm>
+#include <numeric>
 
 namespace sosnina_a_diff_count {
 
-SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InType &in) {
-  SetTypeOfTask(GetStaticTypeOfTask());
-  GetInput() = in;
-  GetOutput() = 0;
+SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in)
+    : input_(in), diff_counter(0) {
+    SetTypeOfTask(GetStaticTypeOfTask());
+    GetOutput() = 0;  
 }
 
 bool SosninaADiffCountSEQ::ValidationImpl() {
-  return (GetInput() > 0) && (GetOutput() == 0);
+    return true;  
 }
 
 bool SosninaADiffCountSEQ::PreProcessingImpl() {
-  GetOutput() = 2 * GetInput();
-  return GetOutput() > 0;
+    diff_counter = 0;
+    return true;
 }
 
 bool SosninaADiffCountSEQ::RunImpl() {
-  if (GetInput() == 0) {
-    return false;
-  }
+    const std::string &str1 = input_.first;
+    const std::string &str2 = input_.second;
 
-  for (InType i = 0; i < GetInput(); i++) {
-    for (InType j = 0; j < GetInput(); j++) {
-      for (InType k = 0; k < GetInput(); k++) {
-        std::vector<InType> tmp(i + j + k, 1);
-        GetOutput() += std::accumulate(tmp.begin(), tmp.end(), 0);
-        GetOutput() -= i + j + k;
-      }
+    size_t min_len = std::min(str1.size(), str2.size());
+    diff_counter = 0;
+
+    for (size_t i = 0; i < min_len; i++) {
+        if (str1[i] != str2[i]) {
+            diff_counter++;
+        }
     }
-  }
 
-  const int num_threads = ppc::util::GetNumThreads();
-  GetOutput() *= num_threads;
-
-  int counter = 0;
-  for (int i = 0; i < num_threads; i++) {
-    counter++;
-  }
-
-  if (counter != 0) {
-    GetOutput() /= counter;
-  }
-  return GetOutput() > 0;
+    diff_counter += static_cast<int>(std::max(str1.size(), str2.size()) - min_len);
+    return true;
 }
 
 bool SosninaADiffCountSEQ::PostProcessingImpl() {
-  GetOutput() -= GetInput();
-  return GetOutput() > 0;
+    GetOutput() = diff_counter;
+    return true;
+}
+
+int SosninaADiffCountSEQ::GetDiffCount() const {
+    return diff_counter;
 }
 
 }  // namespace sosnina_a_diff_count
