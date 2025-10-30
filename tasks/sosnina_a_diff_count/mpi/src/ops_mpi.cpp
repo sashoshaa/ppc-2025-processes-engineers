@@ -11,15 +11,8 @@ SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in)
 }
 
 bool SosninaADiffCountMPI::ValidationImpl() {
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    
-    
-    if (rank == 0) {}   
-    int validation_result = 1; 
-    MPI_Bcast(&validation_result, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    
-    return validation_result != 0;
+
+    return true;
 }
 
 bool SosninaADiffCountMPI::PreProcessingImpl() {
@@ -71,21 +64,25 @@ bool SosninaADiffCountMPI::RunImpl() {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    size_t min_len = std::min(str1_.size(), str2_.size());
-    size_t max_len = std::max(str1_.size(), str2_.size());
+    size_t str1_len = str1_.size();
+    size_t str2_len = str2_.size();
+    size_t total_len = std::max(str1_len, str2_len);
+    size_t min_len = std::min(str1_len, str2_len);
 
-    if (max_len == 0) {
+    if (total_len == 0) {
         diff_counter = 0;
         return true;
     }
 
-    size_t chunk_size = max_len / size;
-    size_t remainder = max_len % size;
-    size_t start = rank * chunk_size + std::min((size_t)rank, remainder);
-    size_t end = start + chunk_size + (rank < (int)remainder ? 1 : 0);
-    end = std::min(end, max_len);
+    size_t block_size = total_len / size;
+    size_t remainder = total_len % size;
+    
+    size_t start = rank * block_size + std::min((size_t)rank, remainder); 
+    size_t end = start + block_size + (rank < (int)remainder ? 1 : 0);
+    end = std::min(end, total_len);
 
     int local_diff_count = 0;
+
     for (size_t i = start; i < end; i++) {
         if (i < min_len) {
             if (str1_[i] != str2_[i]) {
@@ -95,13 +92,24 @@ bool SosninaADiffCountMPI::RunImpl() {
             local_diff_count++;
         }
     }
+
     if (size > 1) {
-        MPI_Reduce(&local_diff_count, &diff_counter, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+        if (rank == 0) {
+            diff_counter = local_diff_count;
+            
+            for (int i = 1; i < size; i++) {
+                int received_count;
+                MPI_Recv(&received_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                diff_counter += received_count;
+            }
+        } else {
+            MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        }
     } else {
         diff_counter = local_diff_count;
     }
 
-    return true;  
+    return true;
 }
 
 bool SosninaADiffCountMPI::PostProcessingImpl() {
