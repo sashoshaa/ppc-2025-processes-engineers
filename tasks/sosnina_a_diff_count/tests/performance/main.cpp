@@ -103,3 +103,4 @@ TEST(sosnina_a_diff_count_mpi, test_task_run) {
 }
 
 }  // namespace sosnina_a_diff_count
+
