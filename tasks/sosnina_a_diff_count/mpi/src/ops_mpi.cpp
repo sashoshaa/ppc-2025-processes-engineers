@@ -95,6 +95,13 @@ bool SosninaADiffCountMPI::RunImpl() {
             local_diff_count++;
         }
     }
+    if (size > 1) {
+        MPI_Reduce(&local_diff_count, &diff_counter, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    } else {
+        diff_counter = local_diff_count;
+    }
+
+    return true;  
 }
 
 bool SosninaADiffCountMPI::PostProcessingImpl() {
