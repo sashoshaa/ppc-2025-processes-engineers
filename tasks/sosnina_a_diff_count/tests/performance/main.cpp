@@ -8,7 +8,7 @@
 
 namespace sosnina_a_diff_count {
 
-int CalcOfDiff(const std::string &s1, const std::string &s2) {
+static int CalcOfDiff(const std::string &s1, const std::string &s2) {
     int diff_count = 0;
     size_t len = std::max(s1.size(), s2.size());
     for (size_t i = 0; i < len; i++) {
