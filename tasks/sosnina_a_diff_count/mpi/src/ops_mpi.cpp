@@ -112,6 +112,16 @@ bool SosninaADiffCountMPI::RunImpl() {
 }
 
 bool SosninaADiffCountMPI::PostProcessingImpl() {
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  if (size > 1) {
+    int final_result = diff_counter;
+    MPI_Bcast(&final_result, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    diff_counter = final_result;
+  }
+
   GetOutput() = diff_counter;
   return true;
 }
