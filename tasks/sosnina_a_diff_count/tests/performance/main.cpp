@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
-
 #include <string>
-
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
