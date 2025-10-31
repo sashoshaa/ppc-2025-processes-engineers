@@ -1,13 +1,14 @@
 #pragma once
 
-#include "sosnina_a_diff_count/common/include/common.hpp"
-#include "task/include/task.hpp"
 #include <string>
 #include <utility>
 
+#include "sosnina_a_diff_count/common/include/common.hpp"
+#include "task/include/task.hpp"
+
 namespace sosnina_a_diff_count {
 
-using InTypePair = std::pair<std::string, std::string>;  //входная пара строк
+using InTypePair = std::pair<std::string, std::string>;  // входная пара строк
 
 class SosninaADiffCountSEQ : public BaseTask {
  public:

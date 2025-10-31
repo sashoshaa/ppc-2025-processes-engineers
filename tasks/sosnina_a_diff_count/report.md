@@ -221,9 +221,9 @@ using BaseTask = ppc::task::Task<InType, OutType>;
 **ops_mpi.cpp:**
 ```cpp
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
-
+#include "sosnina_a_diff_count/common/include/common.hpp"
+#include "util/include/util.hpp"
 #include <mpi.h>
-
 #include <algorithm>
 
 namespace sosnina_a_diff_count {
@@ -234,51 +234,10 @@ SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) : str1_(in.first), 
 }
 
 bool SosninaADiffCountMPI::ValidationImpl() {
-  return true;
-}
+  return true;}
 
 bool SosninaADiffCountMPI::PreProcessingImpl() {
-  diff_counter = 0;
-
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  if (rank == 0) {
-    int str1_size = str1_.size();
-    int str2_size = str2_.size();
-
-    for (int i = 1; i < size; i++) {
-      MPI_Send(&str1_size, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-      MPI_Send(&str2_size, 1, MPI_INT, i, 1, MPI_COMM_WORLD);
-    }
-
-    for (int i = 1; i < size; i++) {
-      if (str1_size > 0) {
-        MPI_Send(str1_.data(), str1_size, MPI_CHAR, i, 2, MPI_COMM_WORLD);
-      }
-      if (str2_size > 0) {
-        MPI_Send(str2_.data(), str2_size, MPI_CHAR, i, 3, MPI_COMM_WORLD);
-      }
-    }
-  } else {
-    int str1_size, str2_size;
-    MPI_Recv(&str1_size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&str2_size, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    str1_.resize(str1_size);
-    str2_.resize(str2_size);
-
-    if (str1_size > 0) {
-      MPI_Recv(&str1_[0], str1_size, MPI_CHAR, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-    if (str2_size > 0) {
-      MPI_Recv(&str2_[0], str2_size, MPI_CHAR, 0, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-  }
-
-  return true;
-}
+  return true;}
 
 bool SosninaADiffCountMPI::RunImpl() {
   int rank, size;
@@ -307,12 +266,9 @@ bool SosninaADiffCountMPI::RunImpl() {
   for (size_t i = start; i < end; i++) {
     if (i < min_len) {
       if (str1_[i] != str2_[i]) {
-        local_diff_count++;
-      }
+        local_diff_count++;}
     } else {
-      local_diff_count++;
-    }
-  }
+      local_diff_count++;}}
 
   if (size > 1) {
     if (rank == 0) {
@@ -321,151 +277,71 @@ bool SosninaADiffCountMPI::RunImpl() {
       for (int i = 1; i < size; i++) {
         int received_count;
         MPI_Recv(&received_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        diff_counter += received_count;
-      }
+        diff_counter += received_count;}
     } else {
-      MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
-    }
+      MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);}
   } else {
-    diff_counter = local_diff_count;
-  }
-
-  return true;
-}
-
-#include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
-
-#include <mpi.h>
-
-#include <algorithm>
-
-namespace sosnina_a_diff_count {
-
-SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) : str1_(in.first), str2_(in.second), diff_counter(0) {
-  SetTypeOfTask(GetStaticTypeOfTask());
-  GetOutput() = 0;
-}
-
-bool SosninaADiffCountMPI::ValidationImpl() {
-  return true;
-}
-
-bool SosninaADiffCountMPI::PreProcessingImpl() {
-  diff_counter = 0;
-
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  if (rank == 0) {
-    int str1_size = str1_.size();
-    int str2_size = str2_.size();
-
-    for (int i = 1; i < size; i++) {
-      MPI_Send(&str1_size, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-      MPI_Send(&str2_size, 1, MPI_INT, i, 1, MPI_COMM_WORLD);
-    }
-
-    for (int i = 1; i < size; i++) {
-      if (str1_size > 0) {
-        MPI_Send(str1_.data(), str1_size, MPI_CHAR, i, 2, MPI_COMM_WORLD);
-      }
-      if (str2_size > 0) {
-        MPI_Send(str2_.data(), str2_size, MPI_CHAR, i, 3, MPI_COMM_WORLD);
-      }
-    }
-  } else {
-    int str1_size, str2_size;
-    MPI_Recv(&str1_size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&str2_size, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    str1_.resize(str1_size);
-    str2_.resize(str2_size);
-
-    if (str1_size > 0) {
-      MPI_Recv(&str1_[0], str1_size, MPI_CHAR, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-    if (str2_size > 0) {
-      MPI_Recv(&str2_[0], str2_size, MPI_CHAR, 0, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-  }
-
-  return true;
-}
-
-bool SosninaADiffCountMPI::RunImpl() {
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  size_t str1_len = str1_.size();
-  size_t str2_len = str2_.size();
-  size_t total_len = std::max(str1_len, str2_len);
-  size_t min_len = std::min(str1_len, str2_len);
-
-  if (total_len == 0) {
-    diff_counter = 0;
-    return true;
-  }
-
-  size_t block_size = total_len / size;
-  size_t remainder = total_len % size;
-
-  size_t start = rank * block_size + std::min((size_t)rank, remainder);
-  size_t end = start + block_size + (rank < (int)remainder ? 1 : 0);
-  end = std::min(end, total_len);
-
-  int local_diff_count = 0;
-
-  for (size_t i = start; i < end; i++) {
-    if (i < min_len) {
-      if (str1_[i] != str2_[i]) {
-        local_diff_count++;
-      }
-    } else {
-      local_diff_count++;
-    }
-  }
-
-  if (size > 1) {
-    if (rank == 0) {
-      diff_counter = local_diff_count;
-
-      for (int i = 1; i < size; i++) {
-        int received_count;
-        MPI_Recv(&received_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        diff_counter += received_count;
-      }
-    } else {
-      MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
-    }
-  } else {
-    diff_counter = local_diff_count;
-  }
+    diff_counter = local_diff_count;}
 
   return true;
 }
 
 bool SosninaADiffCountMPI::PostProcessingImpl() {
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  if (size > 1) {
+    int end_result = diff_counter;
+    MPI_Bcast(&end_result, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    diff_counter = end_result;}
 
   GetOutput() = diff_counter;
   return true;
 }
 
 int SosninaADiffCountMPI::GetDiffCount() const {
-  return diff_counter;
-}
+  return diff_counter;}
 
 }  // namespace sosnina_a_diff_count
-
-
-int SosninaADiffCountMPI::GetDiffCount() const {
-  return diff_counter;
-}
-
-}  // namespace sosnina_a_diff_count
-
 ```
+
+**ops_mpi.hpp:**
+```cpp
+#pragma once
+
+#include "sosnina_a_diff_count/common/include/common.hpp"
+#include "task/include/task.hpp"
+#include <mpi.h>
+#include <algorithm>
+
+namespace sosnina_a_diff_count {
+
+class SosninaADiffCountMPI : public BaseTask {
+ public:
+  static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
+    return ppc::task::TypeOfTask::kMPI;
+  }
+
+  explicit SosninaADiffCountMPI(const InType &in);
+
+  int GetDiffCount() const;
+
+ private:
+  bool ValidationImpl() override;
+  bool PreProcessingImpl() override;
+  bool RunImpl() override;
+  bool PostProcessingImpl() override;
+
+ private:
+  std::string str1_;
+  std::string str2_;
+  int diff_counter = 0;
+};
+
+}  // namespace sosnina_a_diff_count
+```
+
 
 **ops_seq.hpp:**
 ```cpp
@@ -1045,105 +921,104 @@ TEST(sosnina_a_diff_count_seq, get_diff_count_method) {
 ```cpp
 #include <gtest/gtest.h>
 #include <mpi.h>
+
 #include <string>
+
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
 
 namespace sosnina_a_diff_count {
 
-int CalcOfDiff(const std::string &s1, const std::string &s2) {
-    int diff_count = 0;
-    size_t len = std::max(s1.size(), s2.size());
-    for (size_t i = 0; i < len; i++) {
-        char c1 = i < s1.size() ? s1[i] : 0;
-        char c2 = i < s2.size() ? s2[i] : 0;
-        if (c1 != c2)
-            diff_count++;
+static int CalcOfDiff(const std::string &s1, const std::string &s2) {
+  int diff_count = 0;
+  size_t len = std::max(s1.size(), s2.size());
+  for (size_t i = 0; i < len; i++) {
+    char c1 = i < s1.size() ? s1[i] : 0;
+    char c2 = i < s2.size() ? s2[i] : 0;
+    if (c1 != c2) {
+      diff_count++;
     }
-    return diff_count;
+  }
+  return diff_count;
 }
 
 TEST(sosnina_a_diff_count_mpi, test_pipeline_run) {
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    
-    std::string str1(20000000, 'z');
-    std::string str2(20000000, 'v');
-    int expected = CalcOfDiff(str1, str2);
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    //mpi
-    InType mpi_input = std::make_pair(str1, str2);
-    SosninaADiffCountMPI mpi_task(mpi_input);
-    mpi_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
+  std::string str1(200000000, 'z');
+  std::string str2(200000000, 'v');
+  int expected = CalcOfDiff(str1, str2);
 
-    auto start_mpi = std::chrono::high_resolution_clock::now();
-    bool mpi_success = mpi_task.Validation() && mpi_task.PreProcessing() &&
-                      mpi_task.Run() && mpi_task.PostProcessing();
-    auto end_mpi = std::chrono::high_resolution_clock::now();
-    double mpi_time = std::chrono::duration<double>(end_mpi - start_mpi).count();    
-    ASSERT_TRUE(mpi_success) << "MPI pipeline failed";
-    ASSERT_EQ(mpi_task.GetOutput(), expected) << "MPI pipeline result incorrect";
-    
-    //seq
-    InTypePair seq_input = std::make_pair(str1, str2);
-    SosninaADiffCountSEQ seq_task(seq_input);
-    seq_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf; 
+  // mpi
+  InType mpi_input = std::make_pair(str1, str2);
+  SosninaADiffCountMPI mpi_task(mpi_input);
+  mpi_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
 
-    auto start_seq = std::chrono::high_resolution_clock::now();
-    bool seq_success = seq_task.Validation() && seq_task.PreProcessing() &&
-                      seq_task.Run() && seq_task.PostProcessing();
-    auto end_seq = std::chrono::high_resolution_clock::now();
-    double seq_time = std::chrono::duration<double>(end_seq - start_seq).count();   
-    ASSERT_TRUE(seq_success) << "SEQ pipeline failed";
-    ASSERT_EQ(seq_task.GetOutput(), expected) << "SEQ pipeline result incorrect";
-    
+  auto start_mpi = std::chrono::high_resolution_clock::now();
+  bool mpi_success = mpi_task.Validation() && mpi_task.PreProcessing() && mpi_task.Run() && mpi_task.PostProcessing();
+  auto end_mpi = std::chrono::high_resolution_clock::now();
+  double mpi_time = std::chrono::duration<double>(end_mpi - start_mpi).count();
+  ASSERT_TRUE(mpi_success) << "mpi pipeline failed";
+  ASSERT_EQ(mpi_task.GetOutput(), expected) << "mpi pipeline result incorrect";
 
-    if (rank == 0) {
-        std::cout << "sosnina_a_diff_count_seq_enabled:pipeline:" << seq_time << std::endl;
-        std::cout << "sosnina_a_diff_count_mpi_enabled:pipeline:" << mpi_time << std::endl;
-    }
+  // seq
+  InTypePair seq_input = std::make_pair(str1, str2);
+  SosninaADiffCountSEQ seq_task(seq_input);
+  seq_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
+
+  auto start_seq = std::chrono::high_resolution_clock::now();
+  bool seq_success = seq_task.Validation() && seq_task.PreProcessing() && seq_task.Run() && seq_task.PostProcessing();
+  auto end_seq = std::chrono::high_resolution_clock::now();
+  double seq_time = std::chrono::duration<double>(end_seq - start_seq).count();
+  ASSERT_TRUE(seq_success) << "seq pipeline failed";
+  ASSERT_EQ(seq_task.GetOutput(), expected) << "seq pipeline result incorrect";
+
+  if (rank == 0) {
+    std::cout << "sosnina_a_diff_count_seq_enabled:pipeline:" << seq_time << std::endl;
+    std::cout << "sosnina_a_diff_count_mpi_enabled:pipeline:" << mpi_time << std::endl;
+  }
 }
 
 TEST(sosnina_a_diff_count_mpi, test_task_run) {
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    
-    std::string str1(20000000, 'z');
-    std::string str2(20000000, 'v');
-    int expected = CalcOfDiff(str1, str2);
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    //mpi
-    InType mpi_input = std::make_pair(str1, str2);
-    SosninaADiffCountMPI mpi_task(mpi_input);
-    mpi_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
+  std::string str1(200000000, 'z');
+  std::string str2(200000000, 'v');
+  int expected = CalcOfDiff(str1, str2);
 
-    ASSERT_TRUE(mpi_task.Validation() && mpi_task.PreProcessing());    
-    auto start_mpi = std::chrono::high_resolution_clock::now();
-    bool mpi_run = mpi_task.Run();
-    auto end_mpi = std::chrono::high_resolution_clock::now();
-    double mpi_time = std::chrono::duration<double>(end_mpi - start_mpi).count();    
-    ASSERT_TRUE(mpi_run && mpi_task.PostProcessing());
-    ASSERT_EQ(mpi_task.GetOutput(), expected) << "MPI task run result incorrect";
-    
-    //seq
-    InTypePair seq_input = std::make_pair(str1, str2);
-    SosninaADiffCountSEQ seq_task(seq_input);
-    seq_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
+  // mpi
+  InType mpi_input = std::make_pair(str1, str2);
+  SosninaADiffCountMPI mpi_task(mpi_input);
+  mpi_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
 
-    ASSERT_TRUE(seq_task.Validation() && seq_task.PreProcessing());   
-    auto start_seq = std::chrono::high_resolution_clock::now();
-    bool seq_run = seq_task.Run();
-    auto end_seq = std::chrono::high_resolution_clock::now();
-    double seq_time = std::chrono::duration<double>(end_seq - start_seq).count();    
-    ASSERT_TRUE(seq_run && seq_task.PostProcessing());
-    ASSERT_EQ(seq_task.GetOutput(), expected) << "SEQ task run result incorrect";
-    
-    
-    if (rank == 0) {
-        std::cout << "sosnina_a_diff_count_seq_enabled:task_run:" << seq_time << std::endl;
-        std::cout << "sosnina_a_diff_count_mpi_enabled:task_run:" << mpi_time << std::endl;
-    }
+  ASSERT_TRUE(mpi_task.Validation() && mpi_task.PreProcessing());
+  auto start_mpi = std::chrono::high_resolution_clock::now();
+  bool mpi_run = mpi_task.Run();
+  auto end_mpi = std::chrono::high_resolution_clock::now();
+  double mpi_time = std::chrono::duration<double>(end_mpi - start_mpi).count();
+  ASSERT_TRUE(mpi_run && mpi_task.PostProcessing());
+  ASSERT_EQ(mpi_task.GetOutput(), expected) << "mpi task run incorrect";
+
+  // seq
+  InTypePair seq_input = std::make_pair(str1, str2);
+  SosninaADiffCountSEQ seq_task(seq_input);
+  seq_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
+
+  ASSERT_TRUE(seq_task.Validation() && seq_task.PreProcessing());
+  auto start_seq = std::chrono::high_resolution_clock::now();
+  bool seq_run = seq_task.Run();
+  auto end_seq = std::chrono::high_resolution_clock::now();
+  double seq_time = std::chrono::duration<double>(end_seq - start_seq).count();
+  ASSERT_TRUE(seq_run && seq_task.PostProcessing());
+  ASSERT_EQ(seq_task.GetOutput(), expected) << "seq task run incorrect";
+
+  if (rank == 0) {
+    std::cout << "sosnina_a_diff_count_seq_enabled:task_run:" << seq_time << std::endl;
+    std::cout << "sosnina_a_diff_count_mpi_enabled:task_run:" << mpi_time << std::endl;
+  }
 }
 
 }  // namespace sosnina_a_diff_count

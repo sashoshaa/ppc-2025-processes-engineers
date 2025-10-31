@@ -1,9 +1,11 @@
 #pragma once
 
+#include <mpi.h>
+
+#include <algorithm>
+
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "task/include/task.hpp"
-#include <mpi.h>
-#include <algorithm>
 
 namespace sosnina_a_diff_count {
 

@@ -39,8 +39,8 @@ TEST(sosnina_a_diff_count_mpi, test_pipeline_run) {
   bool mpi_success = mpi_task.Validation() && mpi_task.PreProcessing() && mpi_task.Run() && mpi_task.PostProcessing();
   auto end_mpi = std::chrono::high_resolution_clock::now();
   double mpi_time = std::chrono::duration<double>(end_mpi - start_mpi).count();
-  ASSERT_TRUE(mpi_success) << "MPI pipeline failed";
-  ASSERT_EQ(mpi_task.GetOutput(), expected) << "MPI pipeline result incorrect";
+  ASSERT_TRUE(mpi_success) << "mpi pipeline failed";
+  ASSERT_EQ(mpi_task.GetOutput(), expected) << "mpi pipeline result incorrect";
 
   // seq
   InTypePair seq_input = std::make_pair(str1, str2);
@@ -51,8 +51,8 @@ TEST(sosnina_a_diff_count_mpi, test_pipeline_run) {
   bool seq_success = seq_task.Validation() && seq_task.PreProcessing() && seq_task.Run() && seq_task.PostProcessing();
   auto end_seq = std::chrono::high_resolution_clock::now();
   double seq_time = std::chrono::duration<double>(end_seq - start_seq).count();
-  ASSERT_TRUE(seq_success) << "SEQ pipeline failed";
-  ASSERT_EQ(seq_task.GetOutput(), expected) << "SEQ pipeline result incorrect";
+  ASSERT_TRUE(seq_success) << "seq pipeline failed";
+  ASSERT_EQ(seq_task.GetOutput(), expected) << "seq pipeline result incorrect";
 
   if (rank == 0) {
     std::cout << "sosnina_a_diff_count_seq_enabled:pipeline:" << seq_time << std::endl;
@@ -79,7 +79,7 @@ TEST(sosnina_a_diff_count_mpi, test_task_run) {
   auto end_mpi = std::chrono::high_resolution_clock::now();
   double mpi_time = std::chrono::duration<double>(end_mpi - start_mpi).count();
   ASSERT_TRUE(mpi_run && mpi_task.PostProcessing());
-  ASSERT_EQ(mpi_task.GetOutput(), expected) << "MPI task run result incorrect";
+  ASSERT_EQ(mpi_task.GetOutput(), expected) << "mpi task run incorrect";
 
   // seq
   InTypePair seq_input = std::make_pair(str1, str2);
@@ -92,7 +92,7 @@ TEST(sosnina_a_diff_count_mpi, test_task_run) {
   auto end_seq = std::chrono::high_resolution_clock::now();
   double seq_time = std::chrono::duration<double>(end_seq - start_seq).count();
   ASSERT_TRUE(seq_run && seq_task.PostProcessing());
-  ASSERT_EQ(seq_task.GetOutput(), expected) << "SEQ task run result incorrect";
+  ASSERT_EQ(seq_task.GetOutput(), expected) << "seq task run incorrect";
 
   if (rank == 0) {
     std::cout << "sosnina_a_diff_count_seq_enabled:task_run:" << seq_time << std::endl;
