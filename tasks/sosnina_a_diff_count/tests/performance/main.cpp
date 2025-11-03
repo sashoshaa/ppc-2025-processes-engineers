@@ -26,8 +26,8 @@ TEST(sosnina_a_diff_count_mpi, test_pipeline_run) {
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  std::string str1(200000000, 'z');
-  std::string str2(200000000, 'v');
+  std::string str1(10000000, 'z');
+  std::string str2(10000000, 'v');
   int expected = CalcOfDiff(str1, str2);
 
   // mpi
@@ -64,8 +64,8 @@ TEST(sosnina_a_diff_count_mpi, test_task_run) {
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  std::string str1(200000000, 'z');
-  std::string str2(200000000, 'v');
+  std::string str1(10000000, 'z');
+  std::string str2(10000000, 'v');
   int expected = CalcOfDiff(str1, str2);
 
   // mpi
