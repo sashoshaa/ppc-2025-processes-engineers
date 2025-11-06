@@ -46,7 +46,7 @@ class SosninaADiffCountPerfTests : public ::testing::TestWithParam<std::tuple<st
   size_t str_size_;
 };
 
-std::string PrintTestParam(const testing::TestParamInfo<SosninaADiffCountPerfTests::ParamType> &info) {
+static std::string PrintTestParam(const testing::TestParamInfo<SosninaADiffCountPerfTests::ParamType> &info) {
   std::string str1 = std::get<0>(info.param);
   std::string str2 = std::get<1>(info.param);
   size_t size = std::get<2>(info.param);
