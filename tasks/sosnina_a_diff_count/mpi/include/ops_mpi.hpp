@@ -2,7 +2,6 @@
 
 #include <mpi.h>
 
-#include <algorithm>
 #include <string>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
@@ -25,8 +24,6 @@ class SosninaADiffCountMPI : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-
- private:
   std::string str1_;
   std::string str2_;
   int diff_counter_ = 0;

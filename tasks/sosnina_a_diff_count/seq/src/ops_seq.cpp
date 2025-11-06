@@ -4,9 +4,6 @@
 #include <cstddef>
 #include <string>
 
-#include "sosnina_a_diff_count/common/include/common.hpp"
-#include "util/include/util.hpp"
-
 namespace sosnina_a_diff_count {
 
 SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in) : input_(in) {
