@@ -10,6 +10,7 @@
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
 #include "util/include/util.hpp"
+#include <gtest/gtest.h>
 
 namespace sosnina_a_diff_count {
 

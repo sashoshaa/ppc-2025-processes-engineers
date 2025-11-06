@@ -7,10 +7,11 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <chrono>   
+#include <utility> 
 
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
-#include "util/include/perf_test_util.hpp"
 
 namespace sosnina_a_diff_count {
 
@@ -18,8 +19,8 @@ static int CalcOfDiff(const std::string &s1, const std::string &s2) {
   int diff_count = 0;
   size_t len = std::max(s1.size(), s2.size());
   for (size_t i = 0; i < len; i++) {
-    char c1 = i < s1.size() ? s1[i] : 0;
-    char c2 = i < s2.size() ? s2[i] : 0;
+    char c1 = i < s1.size() ? s1[i] : '\0';
+    char c2 = i < s2.size() ? s2[i] : '\0';
     if (c1 != c2) {
       diff_count++;
     }
@@ -57,8 +58,8 @@ static std::string PrintTestParam(const testing::TestParamInfo<SosninaADiffCount
   return str1 + "_vs_" + str2 + "_size_" + std::to_string(size);
 }
 
-TEST_P(SosninaADiffCountPerfTests, test_pipeline_run) {
-  int rank;
+TEST_P(SosninaADiffCountPerfTests, TestPipelineRun) {
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   int expected = CalcOfDiff(str1_, str2_);
@@ -88,13 +89,13 @@ TEST_P(SosninaADiffCountPerfTests, test_pipeline_run) {
   ASSERT_EQ(seq_task.GetOutput(), expected) << "seq pipeline result incorrect";
 
   if (rank == 0) {
-    std::cout << "sosnina_a_diff_count_seq_enabled:pipeline:" << seq_time << std::endl;
-    std::cout << "sosnina_a_diff_count_mpi_enabled:pipeline:" << mpi_time << std::endl;
+    std::cout << "sosnina_a_diff_count_seq_enabled:pipeline:" << seq_time <<  '\n';
+    std::cout << "sosnina_a_diff_count_mpi_enabled:pipeline:" << mpi_time <<  '\n';
   }
 }
 
-TEST_P(SosninaADiffCountPerfTests, test_task_run) {
-  int rank;
+TEST_P(SosninaADiffCountPerfTests, TestTaskRun) {
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   int expected = CalcOfDiff(str1_, str2_);
@@ -126,8 +127,8 @@ TEST_P(SosninaADiffCountPerfTests, test_task_run) {
   ASSERT_EQ(seq_task.GetOutput(), expected) << "seq task run incorrect";
 
   if (rank == 0) {
-    std::cout << "sosnina_a_diff_count_seq_enabled:task_run:" << seq_time << std::endl;
-    std::cout << "sosnina_a_diff_count_mpi_enabled:task_run:" << mpi_time << std::endl;
+    std::cout << "sosnina_a_diff_count_seq_enabled:task_run:" << seq_time << '\n';
+    std::cout << "sosnina_a_diff_count_mpi_enabled:task_run:" << mpi_time << '\n';
   }
 }
 
