@@ -4,7 +4,6 @@
 #include <string>
 #include <tuple>
 #include <utility>
-#include <algorithm>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
