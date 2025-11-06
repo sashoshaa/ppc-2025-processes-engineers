@@ -2,13 +2,13 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <iostream>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
-#include <chrono>   
-#include <utility> 
 
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
@@ -89,8 +89,8 @@ TEST_P(SosninaADiffCountPerfTests, TestPipelineRun) {
   ASSERT_EQ(seq_task.GetOutput(), expected) << "seq pipeline result incorrect";
 
   if (rank == 0) {
-    std::cout << "sosnina_a_diff_count_seq_enabled:pipeline:" << seq_time <<  '\n';
-    std::cout << "sosnina_a_diff_count_mpi_enabled:pipeline:" << mpi_time <<  '\n';
+    std::cout << "sosnina_a_diff_count_seq_enabled:pipeline:" << seq_time << '\n';
+    std::cout << "sosnina_a_diff_count_mpi_enabled:pipeline:" << mpi_time << '\n';
   }
 }
 

@@ -6,7 +6,6 @@
 #include <cstddef>
 #include <string>
 
-
 #include "sosnina_a_diff_count/common/include/common.hpp"
 
 namespace sosnina_a_diff_count {
