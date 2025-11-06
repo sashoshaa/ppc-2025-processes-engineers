@@ -28,7 +28,7 @@ class SosninaADiffCountMPI : public BaseTask {
  private:
   std::string str1_;
   std::string str2_;
-  int diff_counter = 0;
+  int diff_counter_ = 0;
 };
 
 }  // namespace sosnina_a_diff_count

@@ -92,7 +92,7 @@ class SosninaADiffCountMPI : public BaseTask {
 private:
     std::string str1_;      //Первая строка для сравнения
     std::string str2_;      //Вторая строка для сравнения  
-    int diff_counter = 0;    //Счетчик различий
+    int diff_counter_ = 0;    //Счетчик различий
 };
 ```
 *Фаза ValidationImpl():*
@@ -228,7 +228,7 @@ using BaseTask = ppc::task::Task<InType, OutType>;
 
 namespace sosnina_a_diff_count {
 
-SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) : str1_(in.first), str2_(in.second), diff_counter(0) {
+SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) : str1_(in.first), str2_(in.second), diff_counter_(0) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = 0;
 }
@@ -250,7 +250,7 @@ bool SosninaADiffCountMPI::RunImpl() {
   size_t min_len = std::min(str1_len, str2_len);
 
   if (total_len == 0) {
-    diff_counter = 0;
+    diff_counter_ = 0;
     return true;
   }
 
@@ -272,16 +272,16 @@ bool SosninaADiffCountMPI::RunImpl() {
 
   if (size > 1) {
     if (rank == 0) {
-      diff_counter = local_diff_count;
+      diff_counter_ = local_diff_count;
 
       for (int i = 1; i < size; i++) {
         int received_count;
         MPI_Recv(&received_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        diff_counter += received_count;}
+        diff_counter_ += received_count;}
     } else {
       MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);}
   } else {
-    diff_counter = local_diff_count;}
+    diff_counter_ = local_diff_count;}
 
   return true;
 }
@@ -292,16 +292,16 @@ bool SosninaADiffCountMPI::PostProcessingImpl() {
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   if (size > 1) {
-    int end_result = diff_counter;
+    int end_result = diff_counter_;
     MPI_Bcast(&end_result, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    diff_counter = end_result;}
+    diff_counter_ = end_result;}
 
-  GetOutput() = diff_counter;
+  GetOutput() = diff_counter_;
   return true;
 }
 
 int SosninaADiffCountMPI::GetDiffCount() const {
-  return diff_counter;}
+  return diff_counter_;}
 
 }  // namespace sosnina_a_diff_count
 ```
@@ -336,7 +336,7 @@ class SosninaADiffCountMPI : public BaseTask {
  private:
   std::string str1_;
   std::string str2_;
-  int diff_counter = 0;
+  int diff_counter_ = 0;
 };
 
 }  // namespace sosnina_a_diff_count
@@ -374,7 +374,7 @@ class SosninaADiffCountSEQ : public BaseTask {
 
  private:
   InTypePair input_;
-  int diff_counter = 0;
+  int diff_counter_ = 0;
 };
 
 }  // namespace sosnina_a_diff_count
@@ -390,7 +390,7 @@ class SosninaADiffCountSEQ : public BaseTask {
 namespace sosnina_a_diff_count {
 
 SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in)
-    : input_(in), diff_counter(0) {
+    : input_(in), diff_counter_(0) {
     SetTypeOfTask(GetStaticTypeOfTask());
     GetOutput() = 0;  
 }
@@ -400,7 +400,7 @@ bool SosninaADiffCountSEQ::ValidationImpl() {
 }
 
 bool SosninaADiffCountSEQ::PreProcessingImpl() {
-    diff_counter = 0;
+    diff_counter_ = 0;
     return true;
 }
 
@@ -409,25 +409,25 @@ bool SosninaADiffCountSEQ::RunImpl() {
     const std::string &str2 = input_.second;
 
     size_t min_len = std::min(str1.size(), str2.size());
-    diff_counter = 0;
+    diff_counter_ = 0;
 
     for (size_t i = 0; i < min_len; i++) {
         if (str1[i] != str2[i]) {
-            diff_counter++;
+            diff_counter_++;
         }
     }
 
-    diff_counter += static_cast<int>(std::max(str1.size(), str2.size()) - min_len);
+    diff_counter_ += static_cast<int>(std::max(str1.size(), str2.size()) - min_len);
     return true;
 }
 
 bool SosninaADiffCountSEQ::PostProcessingImpl() {
-    GetOutput() = diff_counter;
+    GetOutput() = diff_counter_;
     return true;
 }
 
 int SosninaADiffCountSEQ::GetDiffCount() const {
-    return diff_counter;
+    return diff_counter_;
 }
 
 }  // namespace sosnina_a_diff_count

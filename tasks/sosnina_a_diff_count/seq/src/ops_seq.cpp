@@ -8,7 +8,7 @@
 
 namespace sosnina_a_diff_count {
 
-SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in) : input_(in), diff_counter(0) {
+SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in) : input_(in), diff_counter_(0) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = 0;
 }
@@ -18,7 +18,7 @@ bool SosninaADiffCountSEQ::ValidationImpl() {
 }
 
 bool SosninaADiffCountSEQ::PreProcessingImpl() {
-  diff_counter = 0;
+  diff_counter_ = 0;
   return true;
 }
 
@@ -27,25 +27,25 @@ bool SosninaADiffCountSEQ::RunImpl() {
   const std::string &str2 = input_.second;
 
   size_t min_len = std::min(str1.size(), str2.size());
-  diff_counter = 0;
+  diff_counter_ = 0;
 
   for (size_t i = 0; i < min_len; i++) {
     if (str1[i] != str2[i]) {
-      diff_counter++;
+      diff_counter_++;
     }
   }
 
-  diff_counter += static_cast<int>(std::max(str1.size(), str2.size()) - min_len);
+  diff_counter_ += static_cast<int>(std::max(str1.size(), str2.size()) - min_len);
   return true;
 }
 
 bool SosninaADiffCountSEQ::PostProcessingImpl() {
-  GetOutput() = diff_counter;
+  GetOutput() = diff_counter_;
   return true;
 }
 
 int SosninaADiffCountSEQ::GetDiffCount() const {
-  return diff_counter;
+  return diff_counter_;
 }
 
 }  // namespace sosnina_a_diff_count

@@ -28,7 +28,7 @@ class SosninaADiffCountSEQ : public BaseTask {
 
  private:
   InTypePair input_;
-  int diff_counter = 0;
+  int diff_counter_ = 0;
 };
 
 }  // namespace sosnina_a_diff_count
