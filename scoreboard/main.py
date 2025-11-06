@@ -133,6 +133,16 @@ def load_performance_data(perf_stat_file_path: Path) -> dict:
     return perf_stats
 
 
+def load_performance_data_threads(csv_path: Path) -> dict:
+    """Load threads performance data from CSV."""
+    return load_performance_data(csv_path)
+
+
+def load_performance_data_processes(csv_path: Path) -> dict:
+    """Load processes performance data from CSV."""
+    return load_performance_data(csv_path)
+
+
 def calculate_performance_metrics(perf_val, eff_num_proc, task_type):
     """Calculate acceleration and efficiency from performance value."""
     acceleration = "?"
@@ -1479,30 +1489,6 @@ def main():
         "HTML pages generated at %s (index.html, threads.html, processes.html)",
         output_path,
     )
-
-
-def load_performance_data(perf_stat_file_path: Path) -> dict:
-    """Load performance data from CSV with multiple implementations.
-    Expected header: Task, SEQ, OMP, STL, TBB, ALL
-    """
-    perf_stats = {}
-    if perf_stat_file_path.exists():
-        with open(perf_stat_file_path, "r", newline="") as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                task_name = row.get("Task")
-                if not task_name:
-                    continue
-                perf_stats[task_name] = {
-                    "seq": row.get("SEQ", "?"),
-                    "omp": row.get("OMP", "?"),
-                    "stl": row.get("STL", "?"),
-                    "tbb": row.get("TBB", "?"),
-                    "all": row.get("ALL", "?"),
-                }
-    else:
-        logger.warning("Performance stats CSV not found at %s", perf_stat_file_path)
-    return perf_stats
 
 
 if __name__ == "__main__":
