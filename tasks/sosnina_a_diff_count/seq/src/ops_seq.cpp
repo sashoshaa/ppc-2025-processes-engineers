@@ -1,14 +1,15 @@
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
 
 #include <algorithm>
-#include <numeric>
+#include <cstddef>
+#include <string>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "util/include/util.hpp"
 
 namespace sosnina_a_diff_count {
 
-SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in) : input_(in), diff_counter_(0) {
+SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in) : input_(in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = 0;
 }
@@ -26,10 +27,10 @@ bool SosninaADiffCountSEQ::RunImpl() {
   const std::string &str1 = input_.first;
   const std::string &str2 = input_.second;
 
-  size_t min_len = std::min(str1.size(), str2.size());
+  std::size_t min_len = std::min(str1.size(), str2.size());
   diff_counter_ = 0;
 
-  for (size_t i = 0; i < min_len; i++) {
+  for (std::size_t i = 0; i < min_len; i++) {
     if (str1[i] != str2[i]) {
       diff_counter_++;
     }

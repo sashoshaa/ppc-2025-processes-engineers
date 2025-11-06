@@ -18,15 +18,13 @@ class SosninaADiffCountSEQ : public BaseTask {
 
   explicit SosninaADiffCountSEQ(const InTypePair &in);
 
-  int GetDiffCount() const;
+  [[nodiscard]] int GetDiffCount() const;
 
  private:
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-
- private:
   InTypePair input_;
   int diff_counter_ = 0;
 };
