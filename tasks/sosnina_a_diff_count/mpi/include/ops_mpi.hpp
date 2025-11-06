@@ -3,7 +3,7 @@
 #include <mpi.h>
 
 #include <algorithm>
-
+#include <string>
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -15,7 +15,7 @@ class SosninaADiffCountMPI : public BaseTask {
     return ppc::task::TypeOfTask::kMPI;
   }
 
-  explicit SosninaADiffCountMPI(const InType &in);
+  [[nodiscard]] explicit SosninaADiffCountMPI(const InType &in);
 
   int GetDiffCount() const;
 

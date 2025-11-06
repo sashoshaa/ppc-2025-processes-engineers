@@ -1479,6 +1479,8 @@ def main():
         "HTML pages generated at %s (index.html, threads.html, processes.html)",
         output_path,
     )
+
+
 def load_performance_data(perf_stat_file_path: Path) -> dict:
     """Load performance data from CSV with multiple implementations.
     Expected header: Task, SEQ, OMP, STL, TBB, ALL
@@ -1501,6 +1503,7 @@ def load_performance_data(perf_stat_file_path: Path) -> dict:
     else:
         logger.warning("Performance stats CSV not found at %s", perf_stat_file_path)
     return perf_stats
+
 
 if __name__ == "__main__":
     main()
