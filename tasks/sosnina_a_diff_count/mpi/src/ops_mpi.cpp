@@ -56,10 +56,11 @@ bool SosninaADiffCountMPI::RunImpl() {
   std::size_t block_size = total_len / size;
   std::size_t remainder = total_len % size;
 
-  std::size_t start = (static_cast<std::size_t>(rank) * block_size) + std::min(static_cast<std::size_t>(rank), remainder);
+  std::size_t start =
+      (static_cast<std::size_t>(rank) * block_size) + std::min(static_cast<std::size_t>(rank), remainder);
   std::size_t end = start + block_size;
   if (static_cast<std::size_t>(rank) < remainder) {
-      end += 1;
+    end += 1;
   }
   end = std::min(end, total_len);
 

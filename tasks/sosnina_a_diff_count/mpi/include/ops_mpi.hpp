@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
 #include <cstddef>
-#include <cstdint> 
+#include <cstdint>
+#include <string>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "task/include/task.hpp"
