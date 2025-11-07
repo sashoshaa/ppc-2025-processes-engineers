@@ -94,11 +94,11 @@ const std::array<TestType, 22> kFunctionalTests = {
     std::make_tuple(22, "abc_hhfjjsalznzbzfgzzmookzmafgx")};
 
 const std::array<TestType, 10> kCoverageTests = {
-    std::make_tuple(23, "__"), std::make_tuple(24, "short_very_long_string"), std::make_tuple(25, "a_bbb"),
-    std::make_tuple(26, "hello_hxllo"), std::make_tuple(27, "test_text"), std::make_tuple(28, ""),
-    std::make_tuple(29, "_"), std::make_tuple(30, "empty_"), std::make_tuple(31, "_empty"),              
-    std::make_tuple(32, "a_")                   
-};
+    std::make_tuple(23, "__"),        std::make_tuple(24, "short_very_long_string"),
+    std::make_tuple(25, "a_bbb"),     std::make_tuple(26, "hello_hxllo"),
+    std::make_tuple(27, "test_text"), std::make_tuple(28, ""),
+    std::make_tuple(29, "_"),         std::make_tuple(30, "empty_"),
+    std::make_tuple(31, "_empty"),    std::make_tuple(32, "a_")};
 
 const auto kFunctionalTasksList =
     std::tuple_cat(ppc::util::AddFuncTask<sosnina_a_diff_count::SosninaADiffCountMPI, InType>(
