@@ -24,20 +24,6 @@ bool SosninaADiffCountMPI::PreProcessingImpl() {
   return true;
 }
 
-int SosninaADiffCountMPI::CountLocalDiffs(std::size_t start, std::size_t end, std::size_t min_len) {
-  int count = 0;
-  for (std::size_t i = start; i < end; i++) {
-    if (i < min_len) {
-      if (str1_[i] != str2_[i]) {
-        count++;
-      }
-    } else {
-      count++;
-    }
-  }
-  return count;
-}
-
 bool SosninaADiffCountMPI::RunImpl() {
   int rank = 0;
   int size = 1;
@@ -65,7 +51,16 @@ bool SosninaADiffCountMPI::RunImpl() {
   }
   end = std::min(end, total_len);
 
-  int local_diff_count = CountLocalDiffs(start, end, min_len);
+  int local_diff_count = 0;
+  for (std::size_t i = start; i < end; i++) {
+    if (i < min_len) {
+      if (str1_[i] != str2_[i]) {
+        local_diff_count++;
+      }
+    } else {
+      local_diff_count++;
+    }
+  }
 
   if (size == 1) {
     diff_counter_ = local_diff_count;
