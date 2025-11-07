@@ -43,8 +43,4 @@ bool SosninaADiffCountSEQ::PostProcessingImpl() {
   return true;
 }
 
-int SosninaADiffCountSEQ::GetDiffCount() const {
-  return diff_counter_;
-}
-
 }  // namespace sosnina_a_diff_count
