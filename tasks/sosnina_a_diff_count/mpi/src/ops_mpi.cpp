@@ -49,9 +49,9 @@ bool SosninaADiffCountMPI::RunImpl() {
   int local_diff_count = 0;
 
   for (std::size_t i = start; i < end; i++) {
-      if (i >= min_len || str1_[i] != str2_[i]) {
-          local_diff_count++;
-      }
+    if (i >= min_len || str1_[i] != str2_[i]) {
+      local_diff_count++;
+    }
   }
 
   if (size == 1) {

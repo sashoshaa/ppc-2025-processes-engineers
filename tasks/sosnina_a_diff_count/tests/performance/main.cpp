@@ -29,31 +29,39 @@ static int CalcOfDiff(const std::string &s1, const std::string &s2) {
 }
 
 class SosninaADiffCountPerfTests : public ::testing::TestWithParam<std::tuple<std::string, std::string, size_t>> {
-  protected:
-   void SetUp() override {
-     auto params = GetParam();
-     str1_pattern = std::get<0>(params);
-     str2_pattern = std::get<1>(params);
-     str_size = std::get<2>(params);
- 
-     str1 = std::string(str_size, str1_pattern[0]);  
-     str2 = std::string(str_size, str2_pattern[0]);
-   }
- 
-   std::string str1;         
-   std::string str2;         
-   std::string str1_pattern; 
-   std::string str2_pattern; 
-   size_t str_size = 0;      
- };
+ protected:
+  void SetUp() override {
+    auto params = GetParam();
+    str1_pattern = std::get<0>(params);
+    str2_pattern = std::get<1>(params);
+    str_size = std::get<2>(params);
+
+    str1 = std::string(str_size, str1_pattern[0]);
+    str2 = std::string(str_size, str2_pattern[0]);
+  }
+
+  std::string str1;
+  std::string str2;
+  std::string str1_pattern;
+  std::string str2_pattern;
+  size_t str_size = 0;
+};
 
 static std::string PrintTestParam(const testing::TestParamInfo<SosninaADiffCountPerfTests::ParamType> &info) {
   std::string str1 = std::get<0>(info.param);
   std::string str2 = std::get<1>(info.param);
   size_t size = std::get<2>(info.param);
 
-  for (char& c : str1) if (c == ' ') c = '_';
-  for (char& c : str2) if (c == ' ') c = '_';
+  for (char &c : str1) {
+    if (c == ' ') {
+      c = '_';
+    }
+  }
+  for (char &c : str2) {
+    if (c == ' ') {
+      c = '_';
+    }
+  }
 
   return str1 + "_vs_" + str2 + "_size_" + std::to_string(size);
 }
