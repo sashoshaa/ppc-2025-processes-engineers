@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 #include <string>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
