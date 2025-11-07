@@ -69,7 +69,7 @@ TEST_P(SosninaADiffCountFuncTests, CoverageTests) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 19> kFunctionalTests = {
+const std::array<TestType, 22> kFunctionalTests = {
     std::make_tuple(1, "happy_heppy"),
     std::make_tuple(2, "abcdef_abzzef"),
     std::make_tuple(3, "baby_baby"),
@@ -88,11 +88,14 @@ const std::array<TestType, 19> kFunctionalTests = {
     std::make_tuple(16, "54321_09876"),
     std::make_tuple(17, "TEST_TEST"),
     std::make_tuple(18, "z_v_z_v"),
-    std::make_tuple(19, "veryvery_long_string_one_veryvery_long_string_two")};
+    std::make_tuple(19, "veryvery_long_string_one_veryvery_long_string_two"),
+    std::make_tuple(20, "abcdefghij_abcdefghix"),      
+    std::make_tuple(21, "short_very_long_string_mpi"), 
+    std::make_tuple(22, "abc_hhfjjsalznzbzfgzzmookzmafgx") };
 
 const std::array<TestType, 5> kCoverageTests = {
-    std::make_tuple(20, "__"), std::make_tuple(21, "short_very_long_string"), std::make_tuple(22, "a_bbb"),
-    std::make_tuple(23, "hello_hxllo"), std::make_tuple(24, "test_text")};
+    std::make_tuple(23, "__"), std::make_tuple(24, "short_very_long_string"), std::make_tuple(25, "a_bbb"),
+    std::make_tuple(26, "hello_hxllo"), std::make_tuple(27, "test_text")};
 
 const auto kFunctionalTasksList =
     std::tuple_cat(ppc::util::AddFuncTask<sosnina_a_diff_count::SosninaADiffCountMPI, InType>(

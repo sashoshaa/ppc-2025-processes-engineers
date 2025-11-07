@@ -98,8 +98,5 @@ bool SosninaADiffCountMPI::PostProcessingImpl() {
   return true;
 }
 
-int SosninaADiffCountMPI::GetDiffCount() const {
-  return diff_counter_;
-}
 
 }  // namespace sosnina_a_diff_count
