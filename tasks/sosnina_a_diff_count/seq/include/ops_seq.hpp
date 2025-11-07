@@ -16,7 +16,7 @@ class SosninaADiffCountSEQ : public BaseTask {
     return ppc::task::TypeOfTask::kSEQ;
   }
 
-  explicit SosninaADiffCountSEQ(const InTypePair &in);
+  explicit SosninaADiffCountSEQ(InTypePair in);
 
   [[nodiscard]] int GetDiffCount() const;
 

@@ -3,10 +3,11 @@
 #include <algorithm>
 #include <cstddef>
 #include <string>
+#include <utility>  
 
 namespace sosnina_a_diff_count {
 
-SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in) : input_(in) {
+SosninaADiffCountSEQ::SosninaADiffCountSEQ(InTypePair in) : input_(std::move(in)) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = 0;
 }
