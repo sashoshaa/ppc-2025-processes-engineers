@@ -98,5 +98,4 @@ bool SosninaADiffCountMPI::PostProcessingImpl() {
   return true;
 }
 
-
 }  // namespace sosnina_a_diff_count

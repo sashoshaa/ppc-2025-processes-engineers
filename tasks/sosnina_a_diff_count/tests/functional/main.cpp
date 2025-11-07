@@ -89,9 +89,9 @@ const std::array<TestType, 22> kFunctionalTests = {
     std::make_tuple(17, "TEST_TEST"),
     std::make_tuple(18, "z_v_z_v"),
     std::make_tuple(19, "veryvery_long_string_one_veryvery_long_string_two"),
-    std::make_tuple(20, "abcdefghij_abcdefghix"),      
-    std::make_tuple(21, "short_very_long_string_mpi"), 
-    std::make_tuple(22, "abc_hhfjjsalznzbzfgzzmookzmafgx") };
+    std::make_tuple(20, "abcdefghij_abcdefghix"),
+    std::make_tuple(21, "short_very_long_string_mpi"),
+    std::make_tuple(22, "abc_hhfjjsalznzbzfgzzmookzmafgx")};
 
 const std::array<TestType, 5> kCoverageTests = {
     std::make_tuple(23, "__"), std::make_tuple(24, "short_very_long_string"), std::make_tuple(25, "a_bbb"),
