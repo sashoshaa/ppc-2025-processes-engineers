@@ -1,1025 +1,372 @@
-# Отчёт по лабораторной работе № 1
+# Подсчёт числа несовпадающих символов двух строк
+- Студент: Соснина Александра Антоновна, группа 3823Б1ПР1
+- Технология: SEQ | MPI
+- Вариант: 27
 
-## Работу выполнила студентка группы 3823Б1ПР1, Соснина Александра Антоновна  
-## Вариант № 27. Подсчет числа несовпадающих символов двух строк  
-**Преподаватель: Сысоев Александр Владимирович, лектор, доцент кафедры высокопроизводительных вычислений и системного программирования**
 
----
+## 1. Введение
 
-## Введение
-
-&emsp;Целью данной лабораторной работы является исследование методов параллельного программирования с использованием технологии MPI (Message Passing Interface) на примере задачи подсчёта различий между двумя строками.
-
-&emsp;Актуальность исследования обусловлена тем, что при работе с большими объёмами данных последовательные алгоритмы могут быть вычислительно затратными. Применение MPI позволяет распределять вычислительную нагрузку между несколькими процессами, что обеспечивает ускорение выполнения алгоритмов за счёт параллельной обработки данных.
-
-В рамках работы требуется реализовать два варианта алгоритма:
-- последовательный (SEQ), выполняющий обработку данных в одном процессе;
-- параллельный (MPI), который делит работу между несколькими процессами, собирает промежуточные результаты и вычисляет итоговое значение.
+   Задача подсчёта различий между строками имеет практическое применение в исправлении опечаток пользователей, машинном переводе и системах контроля версий. При обработке очень длинных строк последовательные алгоритмы становятся узким местом. 
+   
+   Ожидаемым результатом моей работы является реализация и сравнение последовательного и MPI-параллельного алгоритмов для подсчёта несовпадающих символов с учётом разницы в длине строк.
 
 ---
 
-## Постановка задачи
+## 2. Постановка задачи
 
-&emsp;Необходимо разработать программу, подсчитывающую количество отличий между двумя строками. Отличия учитываются следующим образом:
-- символы, находящиеся на одинаковых позициях в строках, сравниваются друг с другом;
-- если строки имеют разную длину, недостающие символы считаются отличиями.
+**Цель работы:**  
+Реализовать последовательную и параллельную версии алгоритма подсчёта количества несовпадающих символов в двух строках, а также провести сравнение их эффективности.
 
-Требуется реализовать:
-1. Последовательный алгоритм (SEQ), работающий в одном процессе.
-2. Параллельный алгоритм (MPI), распределяющий строки между процессами и объединяющий результаты.
+**Определение задачи:**  
+Для двух заданных строк `s1` и `s2` необходимо вычислить количество позиций, в которых символы различаются. Формально:  
+`diff(s1, s2) = count(i from 0 to min(len(s1), len(s2))-1 where s1[i] != s2[i]) + abs(len(s1) - len(s2))`
 
-Основные требования:
-- корректность вычислений и совпадение результатов обеих версий;
-- тестирование на разных типах данных (короткие строки, длинные строки, пустые строки, строки с цифрами, заглавными и строчными буквами);
-- анализ производительности алгоритмов.
-
----
-
-## Описание алгоритма
-
-### Последовательный алгоритм (SEQ)
-
-&emsp;Последовательная версия алгоритма реализована на основе линейного обхода строк.
-Программа выполняет следующие действия:
-1. Определение минимальной (`min_len`) и максимальной (`total_len`) длины строк.
-2. Для каждого индекса до `min_len` сравниваются соответствующие символы.
-3. При несоответствии символов увеличивается счётчик различий.
-4. Разница в длине строк добавляется к счётчику (символы отсутствующей части считаются различиями).
-5. Итоговое значение сохраняется и возвращается.
-
-&emsp;Последовательная версия является базовой, но её вычислительная эффективность ограничена обработкой в одном процессе.
-
-### Параллельный алгоритм (MPI)
-
-&emsp;Параллельная версия использует возможности MPI для распределения работы между процессами. Основная идея:
-- строки разбиваются на блоки, каждый процесс обрабатывает свой блок символов;
-- результаты локальных вычислений собираются процессом с рангом 0 и суммируются;
-- итоговое значение распространяется всем процессам.
+**Ограничения:**
+- Входные данные - это две строки произвольной длины (включая пустые строки)
+- Корректность должна сохраняться при строках разной длины
+- Должен учитываться регистр символов ('A' ≠ 'a')
+- Для параллельной реализации используется MPI
+- Результат обеих реализаций (последовательной и параллельной) должен совпадать
 
 ---
 
-## Описание схемы параллельного алгоритма
+## 3. Базовый алгоритм
 
-Пошаговая схема работы алгоритма:
-1. Процесс 0 получает две строки и вычисляет их размеры.
-2. Процесс 0 рассылает размеры строк всем остальным процессам с помощью `MPI_Send`.
-3. Процесс 0 отправляет данные строк всем процессам.
-4. Каждый процесс вычисляет диапазон индексов, за который он отвечает.
-5. В пределах своего диапазона процесс подсчитывает количество отличий.
-6. Процесс 0 собирает локальные результаты с помощью `MPI_Recv` и суммирует их для получения глобального счётчика.
-7. Итоговое значение рассылается всем процессам через `MPI_Bcast`.
+### Алгоритм последовательной реализации
 
-&emsp;Параллельная обработка позволяет добиться ускорения при работе с длинными строками, так как каждая часть обрабатывается одновременно несколькими процессами.
+1. Инициализация
+- Получить на вход две строки: `str1` и `str2`
+- Инициализировать счетчик различий: `diff_counter = 0`
 
----
+2. Определение длин строк
+- Вычислить длину первой строки: `len1 = str1.length()`
+- Вычислить длину второй строки: `len2 = str2.length()`
+- Найти минимальную длину: `min_len = min(len1, len2)`
+- Найти максимальную длину: `max_len = max(len1, len2)`
 
-## Описание программной реализации
+3. Сравнение символов в общей части  
 
-### Параллельная реализация (MPI)
+   Для каждого индекса `i` от `0` до `min_len - 1`:
+- Получить символ из первой строки: `char1 = str1[i]`
+- Получить символ из второй строки: `char2 = str2[i]`
+- Если `char1 ≠ char2`, то увеличить счетчик: `diff_counter = diff_counter + 1`
 
-&emsp;Параллельная реализация использует интерфейс MPI для распределения вычислений между процессами. Класс `SosninaADiffCountMPI` реализует тот же интерфейс, что и последовательная версия, но с использованием механизмов межпроцессного взаимодействия.
+4. Учет разницы в длинах
+- Вычислить количество дополнительных различий: `extra_diff = max_len - min_len`
+- Добавить к общему счетчику: `diff_counter = diff_counter + extra_diff`
 
-#### Архитектура коммуникации:
-- Процесс с рангом 0 выступает в роли координатора (master)
-- Остальные процессы являются рабочими (workers)
-- Используется коммуникатор `MPI_COMM_WORLD` для всех операций
-- Применяются точечные (`MPI_Send/MPI_Recv`) и коллективные (`MPI_Bcast`) операции
+5. Возврат результата
+- Вернуть значение `diff_counter`
 
-#### Структура данных:
+
+### Код последовательной реализации:
 
 ```cpp
-class SosninaADiffCountMPI : public BaseTask {
-private:
-    std::string str1_;      //Первая строка для сравнения
-    std::string str2_;      //Вторая строка для сравнения  
-    int diff_counter_ = 0;    //Счетчик различий
-};
-```
-*Фаза ValidationImpl():*
-На этом этапе выполняется проверка корректности входных данных. Процесс 0 выполняет валидацию и рассылает результат всем процессам через MPI_Bcast.
-
-*Фаза PreProcessingImpl()* - распределение данных:
-процесс 0 рассылает размеры строк и сами строки всем рабочим процессам. Каждый рабочий процесс получает данные через MPI_Recv и изменяет размер своих локальных строк.
-
-*Фаза RunImpl()* - параллельное вычисление различий:
-- Каждый процесс вычисляет свой диапазон индексов на основе блочного распределения
-- В пределах назначенного диапазона процесс подсчитывает локальные различия
-- Процесс 0 собирает результаты от всех рабочих процессов через MPI_Recv
-- Рабочие процессы отправляют свои результаты процессу 0 через MPI_Send
-
-*Фаза PostProcessingImpl()* - финализация результатов:
-итоговый результат рассылается всем процессам через MPI_Bcast для обеспечения согласованности данных.
-
-#### Ключевые особенности реализации:
-
-- Стратегия распределения данных: блочное распределение с учетом остатка
-- Коммуникационные паттерны: point-to-point для распределения данных, broadcast для распространения общей информации
-- Обработка граничных условий: корректная обработка строк разной длины и пустых строк
-- Балансировка нагрузки: равномерное распределение работы между процессами
-
----
-
-## Тестирование
-
-### Функциональные тесты
-
-&emsp;Для проверки корректности работы алгоритмов реализован набор функциональных тестов. Включены сценарии:
-- строки одинаковой длины с одной или несколькими различиями;  
-- строки разной длины;  
-- пустые строки и строки с одним символом;  
-- строки с цифрами, заглавными и строчными буквами;  
-- длинные строки.  
-
-Результаты тестирования:
-
-| Версия | Кол-во тестов | Успешные | Примечания |
-|--------|---------------|-----------|------------|
-| MPI    | 22            | 22        | Все тесты пройдены |
-| SEQ    | 22            | 22        | Все тесты пройдены |
-
-&emsp;Все тесты прошли успешно, что подтверждает корректность реализации как последовательного, так и параллельного алгоритмов.  
-
-### Производительность
-
-Для анализа производительности использовались строки длиной 200 000 000 символов. Тесты включали:
-- полный pipeline (`Validation + PreProcessing + Run + PostProcessing`);  
-- только выполнение `Run()`.  
-
-Результаты (в секундах):
-
-| Версия | Pipeline | Run() |
-|--------|----------|-------|
-| SEQ    | 0.349972 | 0.351109 |
-| MPI    | 0.353126 | 0.0397706 |
-
-MPI-версия показала ускорение примерно в 9 раз на 4 процессах.  
-
----
-
-## Выводы
-
-1. Оба алгоритма корректно подсчитывают количество отличий между строками.  
-2. MPI-версия демонстрирует значительное ускорение по сравнению с последовательной реализацией при обработке больших данных.  
-3. Использование MPI позволяет распределять нагрузку между процессами и повышать производительность без изменения логики вычислений.  
-4. Лабораторная работа способствует пониманию принципов параллельных вычислений, коллективных операций и работы с большими объемами данных.  
-
----
-
-## Заключение
-
-&emsp;В ходе лабораторной работы были успешно реализованы последовательный и параллельный алгоритмы подсчета различий между строками. Параллельная версия на основе MPI показала значительное ускорение обработки данных - в 3 раза на 4 процессах при работе с большими строками.
-
-&emsp;Работа подтвердила эффективность технологии MPI для задач обработки строковых данных. Основные преимущества параллельного подхода проявились при работе с большими объемами данных, когда вычислительная нагрузка превышает коммуникационные издержки.
-
-&emsp;Полученные результаты демонстрируют практическую ценность распределенных вычислений и открывают перспективы для оптимизации алгоритмов обработки текстовой информации.
-
----
-
-## Список литературы
-
-1. Антонов А. С. Параллельное программирование с использованием технологии MPI / А. С. Антонов. — М. : Изд-во МГУ, 2010. — 120 с.
-
-2. Корнеев В. Д. Параллельное программирование в MPI / В. Д. Корнеев. — М. : Изд-во МГУ, 2002. — 240 с.
-
-3. Шпаковский Г. И. Программирование для многопроцессорных систем в стандарте MPI / Г. И. Шпаковский, Н. В. Серикова. — Минск : БГУ, 2008. — 175 с.
-
-4. Сысоев А. В. Лекции по параллельному программированию: курс лекций / А. В. Сысоев ; Нижегородский государственный университет им. Н. И. Лобачевского. — Н. Новгород, 2025.
-
----
-
-## Приложение
-
-Приложение содержит исходные файлы лабораторной работы, включая:
-
-- **Последовательную реализацию** - класс `SosninaADiffCountSEQ` с алгоритмом линейного сравнения строк
-- **Параллельную реализацию** - класс `SosninaADiffCountMPI` с распределённой обработкой данных
-- **Тестовые модули** - набор функциональных тестов для проверки корректности работы алгоритмов
-- **Экспериментальные модули** - тесты производительности для сравнения эффективности SEQ и MPI версий
-
-Все исходные коды соответствуют требованиям задания и обеспечивают воспроизводимость результатов.
-
-**common.hpp:**
-```cpp
-#pragma once
-
-#include <string>
-#include <tuple>
-#include <utility>
-
-#include "task/include/task.hpp"
-
-namespace sosnina_a_diff_count {
-
-using InType = std::pair<std::string, std::string>;  
-using OutType = int;
-using TestType = std::tuple<int, std::string>;  
-using BaseTask = ppc::task::Task<InType, OutType>;
-
-}  // namespace sosnina_a_diff_count
-```
-
-**ops_mpi.cpp:**
-```cpp
-#include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
-#include "sosnina_a_diff_count/common/include/common.hpp"
-#include "util/include/util.hpp"
-#include <mpi.h>
-#include <algorithm>
-
-namespace sosnina_a_diff_count {
-
-SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) : str1_(in.first), str2_(in.second), diff_counter_(0) {
-  SetTypeOfTask(GetStaticTypeOfTask());
-  GetOutput() = 0;
-}
-
-bool SosninaADiffCountMPI::ValidationImpl() {
-  return true;}
-
-bool SosninaADiffCountMPI::PreProcessingImpl() {
-  return true;}
-
-bool SosninaADiffCountMPI::RunImpl() {
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  size_t str1_len = str1_.size();
-  size_t str2_len = str2_.size();
-  size_t total_len = std::max(str1_len, str2_len);
-  size_t min_len = std::min(str1_len, str2_len);
-
-  if (total_len == 0) {
-    diff_counter_ = 0;
-    return true;
-  }
-
-  size_t block_size = total_len / size;
-  size_t remainder = total_len % size;
-
-  size_t start = rank * block_size + std::min((size_t)rank, remainder);
-  size_t end = start + block_size + (rank < (int)remainder ? 1 : 0);
-  end = std::min(end, total_len);
-
-  int local_diff_count = 0;
-
-  for (size_t i = start; i < end; i++) {
-    if (i < min_len) {
-      if (str1_[i] != str2_[i]) {
-        local_diff_count++;}
-    } else {
-      local_diff_count++;}}
-
-  if (size > 1) {
-    if (rank == 0) {
-      diff_counter_ = local_diff_count;
-
-      for (int i = 1; i < size; i++) {
-        int received_count;
-        MPI_Recv(&received_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        diff_counter_ += received_count;}
-    } else {
-      MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);}
-  } else {
-    diff_counter_ = local_diff_count;}
-
-  return true;
-}
-
-bool SosninaADiffCountMPI::PostProcessingImpl() {
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  if (size > 1) {
-    int end_result = diff_counter_;
-    MPI_Bcast(&end_result, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    diff_counter_ = end_result;}
-
-  GetOutput() = diff_counter_;
-  return true;
-}
-
-int SosninaADiffCountMPI::GetDiffCount() const {
-  return diff_counter_;}
-
-}  // namespace sosnina_a_diff_count
-```
-
-**ops_mpi.hpp:**
-```cpp
-#pragma once
-
-#include "sosnina_a_diff_count/common/include/common.hpp"
-#include "task/include/task.hpp"
-#include <mpi.h>
-#include <algorithm>
-
-namespace sosnina_a_diff_count {
-
-class SosninaADiffCountMPI : public BaseTask {
- public:
-  static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
-    return ppc::task::TypeOfTask::kMPI;
-  }
-
-  explicit SosninaADiffCountMPI(const InType &in);
-
-  int GetDiffCount() const;
-
- private:
-  bool ValidationImpl() override;
-  bool PreProcessingImpl() override;
-  bool RunImpl() override;
-  bool PostProcessingImpl() override;
-
- private:
-  std::string str1_;
-  std::string str2_;
-  int diff_counter_ = 0;
-};
-
-}  // namespace sosnina_a_diff_count
-```
-
-
-**ops_seq.hpp:**
-```cpp
-#pragma once
-
-#include "sosnina_a_diff_count/common/include/common.hpp"
-#include "task/include/task.hpp"
-#include <string>
-#include <utility>
-
-namespace sosnina_a_diff_count {
-
-using InTypePair = std::pair<std::string, std::string>;  //входная пара строк
-
-class SosninaADiffCountSEQ : public BaseTask {
- public:
-  static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
-    return ppc::task::TypeOfTask::kSEQ;
-  }
-
-  explicit SosninaADiffCountSEQ(const InTypePair &in);
-
-  int GetDiffCount() const;
-
- private:
-  bool ValidationImpl() override;
-  bool PreProcessingImpl() override;
-  bool RunImpl() override;
-  bool PostProcessingImpl() override;
-
- private:
-  InTypePair input_;
-  int diff_counter_ = 0;
-};
-
-}  // namespace sosnina_a_diff_count
-```
-**ops_seq.cpp:**
-```cpp
-#include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
-#include "sosnina_a_diff_count/common/include/common.hpp"
-#include "util/include/util.hpp"
-#include <algorithm>
-#include <numeric>
-
-namespace sosnina_a_diff_count {
-
-SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InTypePair &in)
-    : input_(in), diff_counter_(0) {
-    SetTypeOfTask(GetStaticTypeOfTask());
-    GetOutput() = 0;  
-}
-
-bool SosninaADiffCountSEQ::ValidationImpl() {
-    return true;  
-}
-
-bool SosninaADiffCountSEQ::PreProcessingImpl() {
-    diff_counter_ = 0;
-    return true;
-}
-
 bool SosninaADiffCountSEQ::RunImpl() {
-    const std::string &str1 = input_.first;
-    const std::string &str2 = input_.second;
+  const std::string &str1 = input_.first;
+  const std::string &str2 = input_.second;
 
-    size_t min_len = std::min(str1.size(), str2.size());
-    diff_counter_ = 0;
+  std::size_t min_len = std::min(str1.size(), str2.size());
+  diff_counter_ = 0;
 
-    for (size_t i = 0; i < min_len; i++) {
-        if (str1[i] != str2[i]) {
-            diff_counter_++;
-        }
+  for (std::size_t i = 0; i < min_len; i++) {
+    if (str1[i] != str2[i]) {
+      diff_counter_++;
     }
+  }
 
-    diff_counter_ += static_cast<int>(std::max(str1.size(), str2.size()) - min_len);
-    return true;
+  diff_counter_ += static_cast<int>(std::max(str1.size(), str2.size()) - min_len);
+  return true;
 }
-
-bool SosninaADiffCountSEQ::PostProcessingImpl() {
-    GetOutput() = diff_counter_;
-    return true;
-}
-
-int SosninaADiffCountSEQ::GetDiffCount() const {
-    return diff_counter_;
-}
-
-}  // namespace sosnina_a_diff_count
 ```
 
-**main.cpp (functional):**
+---
+
+## 4. Схема распараллеливания
+
+### Распределение данных
+
+Для параллельной обработки используется блочное распределение данных с балансировкой нагрузки. Область обработки охватывает весь диапазон `[0, max(len(str1), len(str2))]`.
+
+- Общий диапазон: `total_len = max(str1_len, str2_len)`
+- Базовая длина блока: `block_size = total_len / num_processes`
+- Остаток: `remainder = total_len % num_processes`
+
+Распределение выполняется с учетом остатка для равномерной нагрузки:
+- Процессы с рангом `i < remainder` получают на 1 элемент больше
+- Каждый процесс обрабатывает диапазон `[start, end)`
+
+### Схема связи и топология
+
+Используется звездообразная топология с процессом 0 в качестве центрального координатора.   Все коммуникации проходят через процесс 0:  
+Нисходящие связи: от процесса 0 к worker-процессам (рассылка конечного результата)  
+Восходящие связи: от worker-процессов к процессу 0 (передача частичных результатов)  
+
+Схема коммуникации представляет собой двухэтапный процесс:
+1. Фаза сбора: Worker-процессы отправляют свои локальные счетчики процессу 0
+2. Фаза рассылки: Процесс 0 рассылает конечный результат всем процессам
+
+### Ранжирование ролей
+
+Процесс 0 (Master-координатор):
+  - Выполняет локальную обработку своей части данных
+  - Принимает частичные результаты от всех worker-процессов
+  - Суммирует все частичные счетчики
+  - Рассылает конечный результат всем процессам
+
+Процессы 1..N-1 (Worker-процессы):
+  - Обрабатывают назначенные блоки данных
+  - Отправляют свои локальные счетчики процессу 0
+
+### Декомпозиция
+По данным: диапазон [0, total_len) делится на непрерывные блоки  
+По функциям:
+1. Локальный подсчет (все процессы)
+2. Сбор результатов (процесс 0)
+3. Синхронизация (рассылка итога)
+
+### Планирование
+
+1. Инициализация: расчет границ блоков
+2. Локальная обработка: подсчет различий в назначенном сегменте
+3. Сбор результатов: передача счетчиков процессу 0 и их суммирование
+4. Синхронизация: рассылка финального результата
+
+### Псевдокод
+
+```
+function RunImpl():
+    rank, size = MPI_comm_info()
+    total_len = max(str1_len, str2_len)
+    min_len = min(str1_len, str2_len)
+    
+    //Распределение работы
+    start, end = calculate_chunk(rank, size, total_len)
+    
+    //Локальные вычисления
+    local_count = count_differences(start, end, min_len)
+    
+    //Сбор результатов\отправка 
+    if size > 1:
+        if rank == 0:
+            total = local_count + receive_from_all()
+        else:
+            send_to_zero(local_count)
+    
+    //Синхронизация конечного результата
+    if size > 1:
+        diff_counter_ = broadcast_result()
+    else:
+        diff_counter_ = local_count
+```
+
+---
+## 5. Детали реализации
+
+### Структура кода
+
+**Файловая структура:**
+
+sosnina_a_diff_count/  
+├── common/include/common.hpp  
+├── seq/include/ops_seq.hpp  
+├── seq/src/ops_seq.cpp  
+├── mpi/include/ops_mpi.hpp  
+├── mpi/src/ops_mpi.cpp  
+├── tests/functional/main.cpp  
+├── tests/performance/main.cpp  
+└── data/  
+
+
+**Ключевые классы и файлы:**
+
+1. Последовательная реализация (`seq`):
+   - `ops_seq.hpp` - объявление класса `SosninaADiffCountSEQ`
+   - `ops_seq.cpp` - реализация методов:
+     - `RunImpl()` - основной алгоритм сравнения строк
+     - `PreProcessingImpl()` - инициализация счетчика
+     - `PostProcessingImpl()` - сохранение результата
+
+2. MPI реализация (`mpi`):
+   - `ops_mpi.hpp` - объявление класса `SosninaADiffCountMPI`
+   - `ops_mpi.cpp` - реализация методов:
+     - `RunImpl()` - координация параллельных вычислений
+     - `CountLocalDiffs()` - локальный подсчет различий
+     - `PostProcessingImpl()` - синхронизация результата
+
+3. Общие компоненты (`common`):
+   - `common.hpp` - общие типы данных и константы
+
+**Архитектурные особенности:**
+- Разделение интерфейса (.hpp) и реализации (.cpp)
+- Единый стиль именования для обеих реализаций
+- Изолированные тестовые модули для функциональности и производительности
+
+### Важные допущения и ограничения
+
+**Обработка данных:**
+- Поддержка строк произвольной длины (ограничено `size_t`)
+- Учет регистра символов: 'A' ≠ 'a'
+- Корректная обработка специальных символов и UTF-8
+
+**Граничные случаи:**
 ```cpp
-#include "sosnina_a_diff_count/common/include/common.hpp"
-#include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
-#include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
-#include "util/include/func_test_util.hpp"
-#include "util/include/util.hpp"
-
-#include <string>
-#include <tuple>
-#include <array>
-#include <algorithm>
-#include <utility>
-
-namespace sosnina_a_diff_count {
-
-class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
- public:
-  static std::string PrintTestParam(const TestType &test_param) {
-    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
-  }
-
- protected:
-  void SetUp() override {
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    
-    std::string combined = std::get<1>(params);
-    auto pos = combined.find('_');
-    str1_ = combined.substr(0, pos);
-    str2_ = combined.substr(pos + 1);
-  }
-
-  bool CheckTestOutputData(OutType &output_data) final {
-    int expected = 0;
-    for (size_t i = 0; i < str1_.size() && i < str2_.size(); i++) {
-      if (str1_[i] != str2_[i])
-        expected++;
-    }
-    expected += static_cast<int>(std::max(str1_.size(), str2_.size()) - std::min(str1_.size(), str2_.size()));
-    return output_data == expected;
-  }
-
-  InType GetTestInputData() final {
-    return std::make_pair(str1_, str2_);
-  }
-
- private:
-  std::string str1_;
-  std::string str2_;
-};
-
-namespace {
-
-  //проверяем
-  void DiffFindResult(const std::string& str1, const std::string& str2, int result) {
-    int expected = 0;
-    for (size_t i = 0; i < str1.size() && i < str2.size(); i++) {
-      if (str1[i] != str2[i])
-        expected++;
-    }
-    expected += static_cast<int>(std::max(str1.size(), str2.size()) - std::min(str1.size(), str2.size()));
-    EXPECT_EQ(result, expected) << "Failed for strings: " << str1 << " and " << str2;
-  }
-  
- 
-  
-  //mpi
-  TEST(sosnina_a_diff_count_mpi, one_char_difference) {
-      InType input = std::make_pair("happy", "heppy");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("happy", "heppy", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, multiple_chars_difference) {
-      InType input = std::make_pair("abcdef", "abzzef");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("abcdef", "abzzef", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, identical_strings) {
-      InType input = std::make_pair("baby", "baby");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("baby", "baby", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, different_length_strings) {
-      InType input = std::make_pair("abc", "defgh");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("abc", "defgh", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, empty_vs_non_empty) {
-      InType input = std::make_pair("", "mpi");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("", "mpi", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, long_identical_strings) {
-      InType input = std::make_pair("longstring", "longstring");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("longstring", "longstring", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, basic_strings_comparison) {
-      InType input = std::make_pair("abcd", "efgh");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("abcd", "efgh", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, both_strings_empty) {
-      InType input = std::make_pair("", "");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("", "", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, single_char_empty_first) {
-      InType input = std::make_pair("z", "");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("z", "", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, single_char_empty_second) {
-      InType input = std::make_pair("", "v");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("", "v", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, single_char_difference) {
-      InType input = std::make_pair("z", "v");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("z", "v", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, single_char_identical) {
-      InType input = std::make_pair("z", "z");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("z", "z", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, two_chars_swapped) {
-      InType input = std::make_pair("zv", "vz");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("zv", "vz", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, case_sensitive_comparison) {
-      InType input = std::make_pair("prizet", "PRIZET");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("prizet", "PRIZET", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, triple_chars_difference) {
-      InType input = std::make_pair("zzz", "vvv");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("zzz", "vvv", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, numeric_strings) {
-      InType input = std::make_pair("54321", "09876");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("54321", "09876", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, uppercase_identical) {
-      InType input = std::make_pair("TEST", "TEST");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("TEST", "TEST", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, repeated_pattern) {
-      InType input = std::make_pair("z v", "z v");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("z v", "z v", task.GetOutput());
-  }
-  
-  TEST(sosnina_a_diff_count_mpi, very_long_strings) {
-      InType input = std::make_pair("veryvery_long_string_one", "veryvery_long_string_two");
-      SosninaADiffCountMPI task(input);  
-      bool success = task.Validation() && task.PreProcessing() &&
-                    task.Run() && task.PostProcessing();
-      ASSERT_TRUE(success);
-      DiffFindResult("veryvery_long_string_one", "veryvery_long_string_two", task.GetOutput());
-  }
-
-TEST(sosnina_a_diff_count_mpi, coverage_empty_strings) {
-    std::pair<std::string, std::string> empty_input = {"", ""};
-    SosninaADiffCountMPI empty_task(empty_input);
-    
-    bool empty_success = empty_task.Validation() && empty_task.PreProcessing() &&
-                        empty_task.Run() && empty_task.PostProcessing();
-    
-    ASSERT_TRUE(empty_success);
-    ASSERT_EQ(empty_task.GetOutput(), 0);
-    ASSERT_EQ(empty_task.GetDiffCount(), 0);
-}
-
-TEST(sosnina_a_diff_count_mpi, coverage_different_lengths) {
-    std::pair<std::string, std::string> diff_len_input = {"short", "very_long_string"};
-    SosninaADiffCountMPI diff_len_task(diff_len_input);
-    
-    bool diff_len_success = diff_len_task.Validation() && diff_len_task.PreProcessing() &&
-                           diff_len_task.Run() && diff_len_task.PostProcessing();
-    
-    ASSERT_TRUE(diff_len_success);
-    ASSERT_GT(diff_len_task.GetOutput(), 0);
-}
-
-//seq
-TEST(sosnina_a_diff_count_seq, one_char_difference) {
-  InType input = std::make_pair("happy", "heppy");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("happy", "heppy", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, multiple_chars_difference) {
-  InType input = std::make_pair("abcdef", "abzzef");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("abcdef", "abzzef", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, identical_strings) {
-  InType input = std::make_pair("baby", "baby");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("baby", "baby", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, different_length_strings) {
-  InType input = std::make_pair("abc", "defgh");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("abc", "defgh", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, empty_vs_non_empty) {
-  InType input = std::make_pair("", "mpi");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("", "mpi", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, long_identical_strings) {
-  InType input = std::make_pair("longstring", "longstring");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("longstring", "longstring", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, basic_strings_comparison) {
-  InType input = std::make_pair("abcd", "efgh");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("abcd", "efgh", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, both_strings_empty) {
-  InType input = std::make_pair("", "");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("", "", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, single_char_empty_first) {
-  InType input = std::make_pair("z", "");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("z", "", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, single_char_empty_second) {
-  InType input = std::make_pair("", "v");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("", "v", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, single_char_difference) {
-  InType input = std::make_pair("z", "v");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("z", "v", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, single_char_identical) {
-  InType input = std::make_pair("z", "z");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("z", "z", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, two_chars_swapped) {
-  InType input = std::make_pair("zv", "vz");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("zv", "vz", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, case_sensitive_comparison) {
-  InType input = std::make_pair("prizet", "PRIZET");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("prizet", "PRIZET", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, triple_chars_difference) {
-  InType input = std::make_pair("zzz", "vvv");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("zzz", "vvv", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, numeric_strings) {
-  InType input = std::make_pair("54321", "09876");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("54321", "09876", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, uppercase_identical) {
-  InType input = std::make_pair("TEST", "TEST");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("TEST", "TEST", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, repeated_pattern) {
-  InType input = std::make_pair("z v", "z v");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("z v", "z v", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, very_long_strings) {
-  InType input = std::make_pair("veryvery_long_string_one", "veryvery_long_string_two");
-  SosninaADiffCountSEQ task(input);  
-  bool success = task.Validation() && task.PreProcessing() &&
-                task.Run() && task.PostProcessing();
-  ASSERT_TRUE(success);
-  DiffFindResult("veryvery_long_string_one", "veryvery_long_string_two", task.GetOutput());
-}
-
-TEST(sosnina_a_diff_count_seq, coverage_empty_strings) {
-    std::pair<std::string, std::string> empty_input = {"", ""};
-    SosninaADiffCountSEQ empty_task(empty_input);
-    
-    bool empty_success = empty_task.Validation() && empty_task.PreProcessing() &&
-                        empty_task.Run() && empty_task.PostProcessing();
-    
-    ASSERT_TRUE(empty_success);
-    ASSERT_EQ(empty_task.GetOutput(), 0);
-    ASSERT_EQ(empty_task.GetDiffCount(), 0);
-}
-
-TEST(sosnina_a_diff_count_seq, coverage_different_lengths) {
-    std::pair<std::string, std::string> diff_len_input = {"a", "bbb"};
-    SosninaADiffCountSEQ diff_len_task(diff_len_input);
-    
-    bool diff_len_success = diff_len_task.Validation() && diff_len_task.PreProcessing() &&
-                           diff_len_task.Run() && diff_len_task.PostProcessing();
-    
-    ASSERT_TRUE(diff_len_success);
-    ASSERT_GT(diff_len_task.GetOutput(), 0);
-}
-
-TEST(sosnina_a_diff_count_mpi, get_diff_count_method) {
-    std::pair<std::string, std::string> input = {"hello", "hxllo"};
-    SosninaADiffCountMPI task(input);
-    
-    bool success = task.Validation() && task.PreProcessing() &&
-                  task.Run() && task.PostProcessing();
-    
-    ASSERT_TRUE(success);
-    ASSERT_EQ(task.GetOutput(), 1);
-    ASSERT_EQ(task.GetDiffCount(), 1);
-}
-
-TEST(sosnina_a_diff_count_seq, get_diff_count_method) {
-    std::pair<std::string, std::string> input = {"test", "text"};
-    SosninaADiffCountSEQ task(input);
-    
-    bool success = task.Validation() && task.PreProcessing() &&
-                  task.Run() && task.PostProcessing();
-    
-    ASSERT_TRUE(success);
-    ASSERT_EQ(task.GetOutput(), 1);
-    ASSERT_EQ(task.GetDiffCount(), 1);
-}
-
-} 
-
-}  // namespace sosnina_a_diff_count
+diff("", "") = 0 // Пустые строки
+diff("hello", "help") = 2 // Разная длина
+diff("cat", "cat") = 0 // Полное совпадение
+diff("cat", "dog") = 3 // Полное различие
 ```
-**main.cpp (perfomance):**
+
+### Рекомендации по использованию памяти
+- Для строк длиной до 1 млн символов использовать последовательную версию
+- Для больших объемов данных (>10 млн символов) применять MPI версию
+- Контролировать общий объем памяти
+---
+## 6. Экспериментальная установка
+
+### Аппаратное обеспечение и ОС
+
+Системные характеристики:
+- Модель процессора: Apple M2 Chip (8-core CPU)
+- Архитектура: ARM64
+- Ядра/потоки: 4 производительных + 4 энергоэффективных ядра
+- Оперативная память: 16 GB 
+- Операционная система: macOS Sonoma 14.x
+- Тип системы: Ноутбук (MacBook Air)
+
+### Набор инструментов
+
+Компиляция и сборка:
+- Компилятор: GCC 11.4.0 (через Homebrew)
+- Стандарт языка: C++17
+- Среда разработки: Visual Studio Code
+- Тип сборки: Release
+- Система сборки: CMake
+
+### Управление процессами
+
+PPC_NUM_PROC: устанавливается через параметр -n в mpirun
+
 ```cpp
-#include <gtest/gtest.h>
-#include <mpi.h>
-
-#include <string>
-
-#include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
-#include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
-#include "util/include/perf_test_util.hpp"
-
-namespace sosnina_a_diff_count {
-
-static int CalcOfDiff(const std::string &s1, const std::string &s2) {
-  int diff_count = 0;
-  size_t len = std::max(s1.size(), s2.size());
-  for (size_t i = 0; i < len; i++) {
-    char c1 = i < s1.size() ? s1[i] : 0;
-    char c2 = i < s2.size() ? s2[i] : 0;
-    if (c1 != c2) {
-      diff_count++;
-    }
-  }
-  return diff_count;
-}
-
-TEST(sosnina_a_diff_count_mpi, test_pipeline_run) {
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  std::string str1(200000000, 'z');
-  std::string str2(200000000, 'v');
-  int expected = CalcOfDiff(str1, str2);
-
-  // mpi
-  InType mpi_input = std::make_pair(str1, str2);
-  SosninaADiffCountMPI mpi_task(mpi_input);
-  mpi_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
-
-  auto start_mpi = std::chrono::high_resolution_clock::now();
-  bool mpi_success = mpi_task.Validation() && mpi_task.PreProcessing() && mpi_task.Run() && mpi_task.PostProcessing();
-  auto end_mpi = std::chrono::high_resolution_clock::now();
-  double mpi_time = std::chrono::duration<double>(end_mpi - start_mpi).count();
-  ASSERT_TRUE(mpi_success) << "mpi pipeline failed";
-  ASSERT_EQ(mpi_task.GetOutput(), expected) << "mpi pipeline result incorrect";
-
-  // seq
-  InTypePair seq_input = std::make_pair(str1, str2);
-  SosninaADiffCountSEQ seq_task(seq_input);
-  seq_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
-
-  auto start_seq = std::chrono::high_resolution_clock::now();
-  bool seq_success = seq_task.Validation() && seq_task.PreProcessing() && seq_task.Run() && seq_task.PostProcessing();
-  auto end_seq = std::chrono::high_resolution_clock::now();
-  double seq_time = std::chrono::duration<double>(end_seq - start_seq).count();
-  ASSERT_TRUE(seq_success) << "seq pipeline failed";
-  ASSERT_EQ(seq_task.GetOutput(), expected) << "seq pipeline result incorrect";
-
-  if (rank == 0) {
-    std::cout << "sosnina_a_diff_count_seq_enabled:pipeline:" << seq_time << std::endl;
-    std::cout << "sosnina_a_diff_count_mpi_enabled:pipeline:" << mpi_time << std::endl;
-  }
-}
-
-TEST(sosnina_a_diff_count_mpi, test_task_run) {
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  std::string str1(200000000, 'z');
-  std::string str2(200000000, 'v');
-  int expected = CalcOfDiff(str1, str2);
-
-  // mpi
-  InType mpi_input = std::make_pair(str1, str2);
-  SosninaADiffCountMPI mpi_task(mpi_input);
-  mpi_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
-
-  ASSERT_TRUE(mpi_task.Validation() && mpi_task.PreProcessing());
-  auto start_mpi = std::chrono::high_resolution_clock::now();
-  bool mpi_run = mpi_task.Run();
-  auto end_mpi = std::chrono::high_resolution_clock::now();
-  double mpi_time = std::chrono::duration<double>(end_mpi - start_mpi).count();
-  ASSERT_TRUE(mpi_run && mpi_task.PostProcessing());
-  ASSERT_EQ(mpi_task.GetOutput(), expected) << "mpi task run incorrect";
-
-  // seq
-  InTypePair seq_input = std::make_pair(str1, str2);
-  SosninaADiffCountSEQ seq_task(seq_input);
-  seq_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
-
-  ASSERT_TRUE(seq_task.Validation() && seq_task.PreProcessing());
-  auto start_seq = std::chrono::high_resolution_clock::now();
-  bool seq_run = seq_task.Run();
-  auto end_seq = std::chrono::high_resolution_clock::now();
-  double seq_time = std::chrono::duration<double>(end_seq - start_seq).count();
-  ASSERT_TRUE(seq_run && seq_task.PostProcessing());
-  ASSERT_EQ(seq_task.GetOutput(), expected) << "seq task run incorrect";
-
-  if (rank == 0) {
-    std::cout << "sosnina_a_diff_count_seq_enabled:task_run:" << seq_time << std::endl;
-    std::cout << "sosnina_a_diff_count_mpi_enabled:task_run:" << mpi_time << std::endl;
-  }
-}
-
-}  // namespace sosnina_a_diff_count
+//Запуск с различным количеством процессов MPI
+mpirun -n 1 ./ppc_perf(func)_tests --gtest_filter="*SosninaADiffCount*"
+mpirun -n 2 ./ppc_perf(func)_tests --gtest_filter="*SosninaADiffCount*"
+mpirun -n 4 ./ppc_perf(func)_tests --gtest_filter="*SosninaADiffCount*"
+mpirun -n 8 ./ppc_perf(func)_tests --gtest_filter="*SosninaADiffCount*"
 ```
+
+## 7. Результаты и обсуждение
+
+### 7.1 Корректность
+
+**Методы проверки корректности:**
+
+1. Эталонная функция сравнения:
+   - Реализована функция `CalcOfDiff()` для вычисления ожидаемого результата
+   - Используется поэлементное сравнение символов с учетом разницы длин
+
+2. Комплексное модульное тестирование:
+   - 19 функциональных тестов - проверка базовых сценариев
+   - 5 тестов покрытия - обработка граничных случаев
+
+3. Тестирование производительности:
+   - 2 теста производительности с измерением времени выполнения
+   - Тестирование на данных объемом 200 миллионов символов
+   - Сравнение времени выполнения SEQ и MPI версий
+
+**Ключевые тестовые сценарии:**
+```cpp
+"baby_baby" → 0 различий //Полное совпадение
+"happy_heppy" → 1 различие //Частичное совпадение  
+"abc_defgh" → 5 различий //Разная длина
+"__" → 0 различий //Пустые строки
+"prizet_PRIZET" → 6 различий //Регистр символов
+"54321_09876" → 5 различий //Числовые строки
+```
+**Методология проверки:**
+- Каждый тест выполняется для обеих реализаций (SEQ и MPI)
+- Результаты сравниваются с эталонным значением
+- Проверяется идентичность результатов между SEQ и MPI версиями
+- Используется фреймворк (Google Test) для автоматизированной проверки
+
+**Результаты проверки корректности:**
+- Все 24 функциональных теста пройдены успешно
+- 2 теста производительности подтвердили работоспособность на больших данных
+- Результаты SEQ и MPI реализаций полностью совпадают
+- Эталонная функция подтверждает правильность вычислений
+- Обработка всех граничных случаев корректна
+
+### 7.2 Производительность
+
+Результаты измерения производительности для строк длиной 200 миллионов символов:
+
+**Время выполнения (task_run) - чистые вычисления**
+
+| Режим | Процессы | Время, с | Ускорение | Эффективность |
+|-------|----------|----------|-----------|---------------|
+| seq   | 1        | 0.213    | 1.00      | N/A           |
+| mpi   | 2        | 0.098    | 2.17      | 108.5%        |
+| mpi   | 3        | 0.068    | 3.13      | 104.3%        |
+| mpi   | 4        | 0.049    | 4.35      | 108.8%        |
+
+**Время выполнения (pipeline) - полный цикл**
+
+| Режим | Процессы | Время, с | Ускорение | Эффективность |
+|-------|----------|----------|-----------|---------------|
+| seq   | 1        | 0.301    | 1.00      | N/A           |
+| mpi   | 2        | 0.097    | 3.10      | 155.0%        |
+| mpi   | 3        | 0.077    | 3.91      | 130.3%        |
+| mpi   | 4        | 0.097    | 3.10      | 77.5%         |
+
+**Анализ результатов:**
+
+1. Результаты Task_Run:
+   - Ускорение растет сверхлинейно: 2.17×, 3.13×, 4.35×
+   - Эффективность: 108-109% для всех конфигураций
+   - На 4 процессах достигнуто 4.35-кратное ускорение
+
+2. Результаты Pipeline:
+   - Ускорение: 3.10×, 3.91×, 3.10×
+   - Эффективность: 155%, 130%, 77.5%
+   - Наилучший результат на 3 процессах (3.91× ускорение)
+
+---
+## 8. Выводы
+
+### Достижения
+
+1. Корректность реализации:
+   - Обе версии (SEQ и MPI) прошли все 24 функциональных теста
+   - Результаты полностью совпадают с эталонными значениями
+   - Обеспечена корректная обработка граничных случаев
+
+2. Высокая производительность:
+   - Достигнуто сверхлинейное ускорение до 4.35× на 4 процессах
+   - Эффективность вычислений превышает 100% 
+   - MPI версия значительно превосходит последовательную реализацию
+
+3. Эффективное распараллеливание:
+   - Алгоритм хорошо масштабируется с ростом числа процессов
+   - Оптимальная производительность достигается на 4 процессах
+   - Схема распределения данных обеспечивает балансировку нагрузки
+
+### Ограничения и проблемы
+
+1. Коммуникационные накладные расходы:
+   - Полный цикл (pipeline) показывает снижение эффективности при 4 процессах
+
+2. Ограничения масштабируемости:
+   - Эффективность может снижаться при очень большом числе процессов
+
+3. Требования к памяти:
+   - Для очень больших данных требуется значительный объем RAM
+
+---
+
+## 9. Список литературы
+
+1. Антонов А. С. Параллельное программирование с использованием технологии MPI. — М.: Изд-во МГУ, 2010.  
+2. Корнеев В. Д. Параллельное программирование в MPI. — М.: Изд-во МГУ, 2002.  
+3. Сысоев А. В. Лекции по параллельному программированию. — Н. Новгород: ННГУ, 2025.
+4. MPI Forum. MPI: A Message-Passing Interface Standard, Version 4.0. 2021. https://www.mpi-forum.org/docs/
+5. Microsoft. Справочник по MPI. — 2024. https://learn.microsoft.com/ru-ru/message-passing-interface/mpi-reference

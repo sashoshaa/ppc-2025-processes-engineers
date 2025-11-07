@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <string>
+#include <utility>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
 
@@ -57,9 +58,9 @@ bool SosninaADiffCountMPI::RunImpl() {
   std::size_t remainder = total_len % size;
 
   std::size_t start =
-      (static_cast<std::size_t>(rank) * block_size) + std::min(static_cast<std::size_t>(rank), remainder);
+  (static_cast<std::size_t>(rank) * block_size) + std::min(static_cast<std::size_t>(rank), remainder);
   std::size_t end = start + block_size;
-  if (rank < static_cast<int>(remainder)) {
+  if (std::cmp_less(rank, remainder)) { 
     end += 1;
   }
   end = std::min(end, total_len);
