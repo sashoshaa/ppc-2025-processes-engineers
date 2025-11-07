@@ -1,7 +1,5 @@
 #pragma once
 
-#include <mpi.h>
-
 #include <string>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"

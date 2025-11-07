@@ -19,7 +19,7 @@ class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
  public:
   static std::string PrintTestParam(const TestType &test_param) {
     std::string combined = std::get<1>(test_param);
-    std::replace(combined.begin(), combined.end(), ' ', '_');
+    for (char& c : combined) if (c == ' ') c = '_';
     return std::to_string(std::get<0>(test_param)) + "_" + combined;
   }
 

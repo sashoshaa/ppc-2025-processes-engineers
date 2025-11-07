@@ -43,37 +43,29 @@ bool SosninaADiffCountMPI::RunImpl() {
   std::size_t remainder = total_len % size;
 
   std::size_t start = (rank * block_size) + std::min(static_cast<std::size_t>(rank), remainder);
-  std::size_t end = start + block_size + ((static_cast<std::size_t>(rank) < remainder) ? 1 : 0);
+  std::size_t end = start + block_size + (static_cast<std::size_t>(rank) < remainder ? 1 : 0);
   end = std::min(end, total_len);
 
   int local_diff_count = 0;
 
   for (std::size_t i = start; i < end; i++) {
-    if (i < min_len) {
-      if (str1_[i] != str2_[i]) {
-        local_diff_count++;
+      if (i >= min_len || str1_[i] != str2_[i]) {
+          local_diff_count++;
       }
-    } else {
-      local_diff_count++;
-    }
   }
 
-  if (size > 1) {
-    if (rank == 0) {
-      diff_counter_ = local_diff_count;
-
-      for (int i = 1; i < size; i++) {
-        int received_count = 0;
-        MPI_Recv(&received_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        diff_counter_ += received_count;
-      }
-    } else {
-      MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+  if (size == 1) {
+    diff_counter_ = local_diff_count;
+  } else if (rank == 0) {
+    diff_counter_ = local_diff_count;
+    for (int i = 1; i < size; i++) {
+      int received_count = 0;
+      MPI_Recv(&received_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      diff_counter_ += received_count;
     }
   } else {
-    diff_counter_ = local_diff_count;
+    MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
   }
-
   return true;
 }
 

@@ -29,31 +29,31 @@ static int CalcOfDiff(const std::string &s1, const std::string &s2) {
 }
 
 class SosninaADiffCountPerfTests : public ::testing::TestWithParam<std::tuple<std::string, std::string, size_t>> {
- protected:
-  void SetUp() override {
-    auto params = GetParam();
-    str1_pattern_ = std::get<0>(params);
-    str2_pattern_ = std::get<1>(params);
-    str_size_ = std::get<2>(params);
-
-    str1_ = std::string(str_size_, str1_pattern_[0]);
-    str2_ = std::string(str_size_, str2_pattern_[0]);
-  }
-
-  std::string str1_;
-  std::string str2_;
-  std::string str1_pattern_;
-  std::string str2_pattern_;
-  size_t str_size_;
-};
+  protected:
+   void SetUp() override {
+     auto params = GetParam();
+     str1_pattern = std::get<0>(params);
+     str2_pattern = std::get<1>(params);
+     str_size = std::get<2>(params);
+ 
+     str1 = std::string(str_size, str1_pattern[0]);  
+     str2 = std::string(str_size, str2_pattern[0]);
+   }
+ 
+   std::string str1;         
+   std::string str2;         
+   std::string str1_pattern; 
+   std::string str2_pattern; 
+   size_t str_size = 0;      
+ };
 
 static std::string PrintTestParam(const testing::TestParamInfo<SosninaADiffCountPerfTests::ParamType> &info) {
   std::string str1 = std::get<0>(info.param);
   std::string str2 = std::get<1>(info.param);
   size_t size = std::get<2>(info.param);
 
-  std::replace(str1.begin(), str1.end(), ' ', '_');
-  std::replace(str2.begin(), str2.end(), ' ', '_');
+  for (char& c : str1) if (c == ' ') c = '_';
+  for (char& c : str2) if (c == ' ') c = '_';
 
   return str1 + "_vs_" + str2 + "_size_" + std::to_string(size);
 }
@@ -62,10 +62,10 @@ TEST_P(SosninaADiffCountPerfTests, TestPipelineRun) {
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  int expected = CalcOfDiff(str1_, str2_);
+  int expected = CalcOfDiff(str1, str2);
 
   // mpi
-  InType mpi_input = std::make_pair(str1_, str2_);
+  InType mpi_input = std::make_pair(str1, str2);
   SosninaADiffCountMPI mpi_task(mpi_input);
   mpi_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
 
@@ -77,7 +77,7 @@ TEST_P(SosninaADiffCountPerfTests, TestPipelineRun) {
   ASSERT_EQ(mpi_task.GetOutput(), expected) << "mpi pipeline result incorrect";
 
   // seq
-  InType seq_input = std::make_pair(str1_, str2_);
+  InType seq_input = std::make_pair(str1, str2);
   SosninaADiffCountSEQ seq_task(seq_input);
   seq_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
 
@@ -98,10 +98,10 @@ TEST_P(SosninaADiffCountPerfTests, TestTaskRun) {
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  int expected = CalcOfDiff(str1_, str2_);
+  int expected = CalcOfDiff(str1, str2);
 
   // mpi
-  InType mpi_input = std::make_pair(str1_, str2_);
+  InType mpi_input = std::make_pair(str1, str2);
   SosninaADiffCountMPI mpi_task(mpi_input);
   mpi_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
 
@@ -114,7 +114,7 @@ TEST_P(SosninaADiffCountPerfTests, TestTaskRun) {
   ASSERT_EQ(mpi_task.GetOutput(), expected) << "mpi task run incorrect";
 
   // seq
-  InType seq_input = std::make_pair(str1_, str2_);
+  InType seq_input = std::make_pair(str1, str2);
   SosninaADiffCountSEQ seq_task(seq_input);
   seq_task.GetStateOfTesting() = ppc::task::StateOfTesting::kPerf;
 
