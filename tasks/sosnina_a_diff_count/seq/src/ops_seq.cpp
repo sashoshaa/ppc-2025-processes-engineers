@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <string>
-#include <utility>  
+#include <utility>
 
 namespace sosnina_a_diff_count {
 

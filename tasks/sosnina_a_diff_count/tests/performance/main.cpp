@@ -10,10 +10,9 @@
 #include <utility>
 #include <vector>
 
+#include "sosnina_a_diff_count/common/include/common.hpp"
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
-#include "sosnina_a_diff_count/common/include/common.hpp"  
- 
 
 namespace sosnina_a_diff_count {
 
@@ -77,7 +76,6 @@ TEST_P(SosninaADiffCountPerfTests, TestPipelineRun) {
   // mpi
   InType mpi_input = std::make_pair(str1, str2);
   SosninaADiffCountMPI mpi_task(mpi_input);
-  
 
   auto start_mpi = std::chrono::high_resolution_clock::now();
   bool mpi_success = mpi_task.Validation() && mpi_task.PreProcessing() && mpi_task.Run() && mpi_task.PostProcessing();
@@ -89,7 +87,6 @@ TEST_P(SosninaADiffCountPerfTests, TestPipelineRun) {
   // seq
   InType seq_input = std::make_pair(str1, str2);
   SosninaADiffCountSEQ seq_task(seq_input);
-  
 
   auto start_seq = std::chrono::high_resolution_clock::now();
   bool seq_success = seq_task.Validation() && seq_task.PreProcessing() && seq_task.Run() && seq_task.PostProcessing();
@@ -114,7 +111,6 @@ TEST_P(SosninaADiffCountPerfTests, TestTaskRun) {
   InType mpi_input = std::make_pair(str1, str2);
   SosninaADiffCountMPI mpi_task(mpi_input);
 
-
   ASSERT_TRUE(mpi_task.Validation() && mpi_task.PreProcessing());
   auto start_mpi = std::chrono::high_resolution_clock::now();
   bool mpi_run = mpi_task.Run();
@@ -126,7 +122,6 @@ TEST_P(SosninaADiffCountPerfTests, TestTaskRun) {
   // seq
   InType seq_input = std::make_pair(str1, str2);
   SosninaADiffCountSEQ seq_task(seq_input);
-  
 
   ASSERT_TRUE(seq_task.Validation() && seq_task.PreProcessing());
   auto start_seq = std::chrono::high_resolution_clock::now();
