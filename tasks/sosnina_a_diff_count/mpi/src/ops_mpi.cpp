@@ -73,6 +73,7 @@ bool SosninaADiffCountMPI::RunImpl() {
     }
   } else {
     MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    diff_counter_ = 0;
   }
   return true;
 }
