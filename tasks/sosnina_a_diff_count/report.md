@@ -146,18 +146,20 @@ function RunImpl():
     //Локальные вычисления
     local_count = count_differences(start, end, min_len)
     
-    //Сбор результатов\отправка 
-    if size > 1:
-        if rank == 0:
-            total = local_count + receive_from_all()
-        else:
-            send_to_zero(local_count)
-    
-    //Синхронизация конечного результата
-    if size > 1:
-        diff_counter_ = broadcast_result()
-    else:
-        diff_counter_ = local_count
+   //Устанавливаем начальное значение
+   diff_counter_ = local_count
+
+   //Сбор результатов\отправка 
+   if size > 1:
+      if rank == 0:
+         //Добавляем результаты других процессов к своему
+         diff_counter_ += receive_from_all()
+      else:
+         send_to_zero(local_count)
+
+   //Синхронизация конечного результата 
+   if size > 1:
+      diff_counter_ = broadcast_result()
 ```
 
 ---
