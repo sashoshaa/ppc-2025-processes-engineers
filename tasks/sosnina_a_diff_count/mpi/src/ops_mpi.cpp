@@ -14,7 +14,7 @@ namespace sosnina_a_diff_count {
 SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = 0;
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   if (rank == 0) {
@@ -34,13 +34,13 @@ bool SosninaADiffCountMPI::PreProcessingImpl() {
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   if (size > 1) {
-    std::size_t lengths[2];
+    std::array<int, 2> lengths{};
     if (rank == 0) {
       lengths[0] = str1_.size();
       lengths[1] = str2_.size();
     }
 
-    MPI_Bcast(lengths, 2, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+    MPI_Bcast(lengths.data(), 2, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (rank != 0) {
       str1_.resize(lengths[0]);

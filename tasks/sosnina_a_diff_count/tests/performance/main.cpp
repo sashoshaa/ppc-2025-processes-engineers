@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <string>
+#include <utility>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
@@ -17,8 +18,8 @@ class SosninaADiffCountRunPerfTests : public ppc::util::BaseRunPerfTests<InType,
 
  protected:
   void SetUp() override {
-    str1 = std::string(kSize, 'z');
-    str2 = std::string(kSize, 'v');
+    str1_ = std::string(kSize, 'z');
+    str2_ = std::string(kSize, 'v');
 
     expected_res_ = static_cast<int>(kSize);
   }
@@ -28,12 +29,12 @@ class SosninaADiffCountRunPerfTests : public ppc::util::BaseRunPerfTests<InType,
   }
 
   InType GetTestInputData() final {
-    return std::make_pair(str1, str2);
+    return std::make_pair(str1_, str2_);
   }
 
  private:
-  std::string str1;
-  std::string str2;
+  std::string str1_;
+  std::string str2_;
   OutType expected_res_{};
 };
 
