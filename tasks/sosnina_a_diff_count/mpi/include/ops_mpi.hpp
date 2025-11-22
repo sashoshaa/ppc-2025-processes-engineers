@@ -19,7 +19,6 @@ class SosninaADiffCountMPI : public BaseTask {
   [[nodiscard]] int GetDiffCount() const;
 
  private:
-  int CountLocalDiffs(std::size_t start, std::size_t end, std::size_t min_len);
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;

@@ -11,9 +11,16 @@
 
 namespace sosnina_a_diff_count {
 
-SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) : str1_(in.first), str2_(in.second) {
+SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = 0;
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    str1_ = in.first;
+    str2_ = in.second;
+  }
 }
 
 bool SosninaADiffCountMPI::ValidationImpl() {
@@ -21,6 +28,29 @@ bool SosninaADiffCountMPI::ValidationImpl() {
 }
 
 bool SosninaADiffCountMPI::PreProcessingImpl() {
+  int rank = 0;
+  int size = 1;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  if (size > 1) {
+    std::size_t lengths[2];
+    if (rank == 0) {
+      lengths[0] = str1_.size();
+      lengths[1] = str2_.size();
+    }
+
+    MPI_Bcast(lengths, 2, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+
+    if (rank != 0) {
+      str1_.resize(lengths[0]);
+      str2_.resize(lengths[1]);
+    }
+
+    MPI_Bcast(str1_.data(), lengths[0], MPI_CHAR, 0, MPI_COMM_WORLD);
+    MPI_Bcast(str2_.data(), lengths[1], MPI_CHAR, 0, MPI_COMM_WORLD);
+  }
+
   return true;
 }
 
