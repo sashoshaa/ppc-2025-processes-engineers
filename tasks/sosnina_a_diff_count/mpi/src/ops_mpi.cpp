@@ -3,6 +3,7 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -36,8 +37,8 @@ bool SosninaADiffCountMPI::PreProcessingImpl() {
   if (size > 1) {
     std::array<int, 2> lengths{};
     if (rank == 0) {
-      lengths[0] = str1_.size();
-      lengths[1] = str2_.size();
+      lengths[0] = static_cast<int>(str1_.size());
+      lengths[1] = static_cast<int>(str2_.size());
     }
 
     MPI_Bcast(lengths.data(), 2, MPI_INT, 0, MPI_COMM_WORLD);
