@@ -40,13 +40,13 @@ class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
   bool CheckTestOutputData(OutType &output_data) final {
     int expected = 0;
     size_t total_len = std::max(str1_.size(), str2_.size());
-    
+
     for (size_t i = 0; i < total_len; i++) {
-        if (i >= str1_.size() || i >= str2_.size() || str1_[i] != str2_[i]) {
-            expected++;
-        }
+      if (i >= str1_.size() || i >= str2_.size() || str1_[i] != str2_[i]) {
+        expected++;
+      }
     }
-    
+
     return output_data == expected;
   }
 
@@ -122,5 +122,5 @@ inline const auto kPerfTestName = SosninaADiffCountFuncTests::PrintFuncTestName<
 INSTANTIATE_TEST_SUITE_P(Functional, SosninaADiffCountFuncTests, kFunctionalGtestValues, kPerfTestName);
 INSTANTIATE_TEST_SUITE_P(Coverage, SosninaADiffCountFuncTests, kCoverageGtestValues, kPerfTestName);
 
-} 
+}  // namespace
 }  // namespace sosnina_a_diff_count
