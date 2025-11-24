@@ -30,11 +30,15 @@ class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
  protected:
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-
     std::string combined = std::get<1>(params);
     auto pos = combined.find('_');
-    str1_ = combined.substr(0, pos);
-    str2_ = combined.substr(pos + 1);
+    if (pos != std::string::npos) {
+      str1_ = combined.substr(0, pos);
+      str2_ = combined.substr(pos + 1);
+    } else {
+      str1_ = combined;
+      str2_ = "";
+    }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {

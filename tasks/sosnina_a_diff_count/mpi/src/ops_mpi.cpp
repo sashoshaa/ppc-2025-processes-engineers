@@ -24,7 +24,30 @@ SosninaADiffCountMPI::SosninaADiffCountMPI(InType in) {
 }
 
 bool SosninaADiffCountMPI::ValidationImpl() {
-  return true;
+  int rank = 0;
+  int size = 1;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  int mpi_initialized = 0;
+  MPI_Initialized(&mpi_initialized);
+  if (!mpi_initialized) {
+    return false;
+  }
+
+  if (size < 1) {
+    return false;
+  }
+
+  int root_valid = 1;
+  if (rank == 0) {
+    if (GetOutput() != 0) {
+      root_valid = 0;
+    }
+  }
+
+  MPI_Bcast(&root_valid, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  return root_valid == 1;
 }
 
 bool SosninaADiffCountMPI::PreProcessingImpl() {
