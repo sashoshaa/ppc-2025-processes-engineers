@@ -31,7 +31,7 @@ bool SosninaADiffCountMPI::ValidationImpl() {
 
   int mpi_initialized = 0;
   MPI_Initialized(&mpi_initialized);
-  if (!mpi_initialized) {
+  if (mpi_initialized == 0) {
     return false;
   }
 
