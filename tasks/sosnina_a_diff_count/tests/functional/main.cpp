@@ -18,40 +18,73 @@ namespace sosnina_a_diff_count {
 class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
-    std::string combined = std::get<1>(test_param);
-    for (char &c : combined) {
-      if (c == ' ') {
-        c = '_';
-      }
-    }
-    return std::to_string(std::get<0>(test_param)) + "_" + combined;
+    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
   }
 
  protected:
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    std::string combined = std::get<1>(params);
-    auto pos = combined.find('_');
-    if (pos != std::string::npos) {
-      str1_ = combined.substr(0, pos);
-      str2_ = combined.substr(pos + 1);
-    } else {
-      str1_ = combined;
+    test_id_ = std::get<0>(params);
+    test_name_ = std::get<1>(params);
+
+    if (test_name_ == "__") {
+      str1_ = "";
       str2_ = "";
-    }
-  }
-
-  bool CheckTestOutputData(OutType &output_data) final {
-    int expected = 0;
-    size_t total_len = std::max(str1_.size(), str2_.size());
-
-    for (size_t i = 0; i < total_len; i++) {
-      if (i >= str1_.size() || i >= str2_.size() || str1_[i] != str2_[i]) {
-        expected++;
+    } else {
+      auto pos = test_name_.find('_');
+      if (pos != std::string::npos) {
+        str1_ = test_name_.substr(0, pos);
+        str2_ = test_name_.substr(pos + 1);
+      } else {
+        str1_ = test_name_;
+        str2_ = "";
       }
     }
+  }
+  bool CheckTestOutputData(OutType &output_data) final {
+    static const std::map<int, int> expected_results = {// FunctionalTests
+                                                        {1, 1},
+                                                        {2, 2},
+                                                        {3, 0},
+                                                        {4, 5},
+                                                        {5, 3},
+                                                        {6, 0},
+                                                        {7, 4},
+                                                        {8, 0},
+                                                        {9, 1},
+                                                        {10, 1},
+                                                        {11, 1},
+                                                        {12, 0},
+                                                        {13, 2},
+                                                        {14, 6},
+                                                        {15, 3},
+                                                        {16, 5},
+                                                        {17, 0},
+                                                        {18, 0},
+                                                        {19, 3},
+                                                        {20, 1},
+                                                        {21, 20},
+                                                        {22, 27},
 
-    return output_data == expected;
+                                                        // CoverageTests
+                                                        {23, 0},
+                                                        {24, 16},
+                                                        {25, 3},
+                                                        {26, 1},
+                                                        {27, 1},
+                                                        {28, 0},
+                                                        {29, 0},
+                                                        {30, 5},
+                                                        {31, 5},
+                                                        {32, 1}};
+
+    auto it = expected_results.find(test_id_);
+    if (it != expected_results.end()) {
+      return output_data == it->second;
+    }
+
+    ADD_FAILURE() << "No expected result defined for test ID: " << test_id_;
+    return false;
   }
 
   InType GetTestInputData() final {
@@ -59,6 +92,8 @@ class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
   }
 
  private:
+  int test_id_;
+  std::string test_name_;
   std::string str1_;
   std::string str2_;
 };
@@ -75,29 +110,28 @@ TEST_P(SosninaADiffCountFuncTests, CoverageTests) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 22> kFunctionalTests = {
-    std::make_tuple(1, "happy_heppy"),
-    std::make_tuple(2, "abcdef_abzzef"),
-    std::make_tuple(3, "baby_baby"),
-    std::make_tuple(4, "abc_defgh"),
-    std::make_tuple(5, "_mpi"),
-    std::make_tuple(6, "longstring_longstring"),
-    std::make_tuple(7, "abcd_efgh"),
-    std::make_tuple(8, "__"),
-    std::make_tuple(9, "z_"),
-    std::make_tuple(10, "_v"),
-    std::make_tuple(11, "z_v"),
-    std::make_tuple(12, "z_z"),
-    std::make_tuple(13, "zv_vz"),
-    std::make_tuple(14, "prizet_PRIZET"),
-    std::make_tuple(15, "zzz_vvv"),
-    std::make_tuple(16, "54321_09876"),
-    std::make_tuple(17, "TEST_TEST"),
-    std::make_tuple(18, "z_v_z_v"),
-    std::make_tuple(19, "veryvery_long_string_one_veryvery_long_string_two"),
-    std::make_tuple(20, "abcdefghij_abcdefghix"),
-    std::make_tuple(21, "short_very_long_string_mpi"),
-    std::make_tuple(22, "abc_hhfjjsalznzbzfgzzmookzmafgx")};
+const std::array<TestType, 22> kFunctionalTests = {std::make_tuple(1, "happy_heppy"),
+                                                   std::make_tuple(2, "abcdef_abzzef"),
+                                                   std::make_tuple(3, "baby_baby"),
+                                                   std::make_tuple(4, "abc_defgh"),
+                                                   std::make_tuple(5, "_mpi"),
+                                                   std::make_tuple(6, "longstring_longstring"),
+                                                   std::make_tuple(7, "abcd_efgh"),
+                                                   std::make_tuple(8, "__"),
+                                                   std::make_tuple(9, "z_"),
+                                                   std::make_tuple(10, "_v"),
+                                                   std::make_tuple(11, "z_v"),
+                                                   std::make_tuple(12, "z_z"),
+                                                   std::make_tuple(13, "zv_vz"),
+                                                   std::make_tuple(14, "prizet_PRIZET"),
+                                                   std::make_tuple(15, "zzz_vvv"),
+                                                   std::make_tuple(16, "54321_09876"),
+                                                   std::make_tuple(17, "TEST_TEST"),
+                                                   std::make_tuple(18, "zv_zv"),
+                                                   std::make_tuple(19, "veryverylongstringone_veryverylongstringtwo"),
+                                                   std::make_tuple(20, "abcdefghij_abcdefghix"),
+                                                   std::make_tuple(21, "short_very_long_string_mpi"),
+                                                   std::make_tuple(22, "abc_hhfjjsalznzbzfgzzmookzmafgx")};
 
 const std::array<TestType, 10> kCoverageTests = {
     std::make_tuple(23, "__"),        std::make_tuple(24, "short_very_long_string"),

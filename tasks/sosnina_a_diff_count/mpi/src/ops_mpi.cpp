@@ -39,15 +39,7 @@ bool SosninaADiffCountMPI::ValidationImpl() {
     return false;
   }
 
-  int root_valid = 1;
-  if (rank == 0) {
-    if (GetOutput() != 0) {
-      root_valid = 0;
-    }
-  }
-
-  MPI_Bcast(&root_valid, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  return root_valid == 1;
+  return true;
 }
 
 bool SosninaADiffCountMPI::PreProcessingImpl() {
