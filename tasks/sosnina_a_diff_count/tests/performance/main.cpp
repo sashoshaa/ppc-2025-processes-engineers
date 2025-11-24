@@ -19,8 +19,7 @@ class SosninaADiffCountRunPerfTests : public ppc::util::BaseRunPerfTests<InType,
   void SetUp() override {
     str1_ = std::string(kSize, 'z');
     str2_ = std::string(kSize, 'v');
-
-    expected_res_ = static_cast<int>(kSize);
+    expected_res_ = kSize;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {

@@ -8,15 +8,13 @@
 
 namespace sosnina_a_diff_count {
 
-using InTypePair = std::pair<std::string, std::string>;  // входная пара строк
-
 class SosninaADiffCountSEQ : public BaseTask {
  public:
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kSEQ;
   }
 
-  explicit SosninaADiffCountSEQ(InTypePair in);
+  explicit SosninaADiffCountSEQ(const InType &in);
 
   [[nodiscard]] int GetDiffCount() const;
 
@@ -25,7 +23,7 @@ class SosninaADiffCountSEQ : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-  InTypePair input_;
+  InType input_;
   int diff_counter_ = 0;
 };
 

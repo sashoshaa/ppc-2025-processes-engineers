@@ -34,23 +34,21 @@ bool SosninaADiffCountMPI::PreProcessingImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  if (size > 1) {
-    std::array<int, 2> lengths{};
-    if (rank == 0) {
-      lengths[0] = static_cast<int>(str1_.size());
-      lengths[1] = static_cast<int>(str2_.size());
-    }
-
-    MPI_Bcast(lengths.data(), 2, MPI_INT, 0, MPI_COMM_WORLD);
-
-    if (rank != 0) {
-      str1_.resize(lengths[0]);
-      str2_.resize(lengths[1]);
-    }
-
-    MPI_Bcast(str1_.data(), lengths[0], MPI_CHAR, 0, MPI_COMM_WORLD);
-    MPI_Bcast(str2_.data(), lengths[1], MPI_CHAR, 0, MPI_COMM_WORLD);
+  std::array<int, 2> lengths{};
+  if (rank == 0) {
+    lengths[0] = static_cast<int>(str1_.size());
+    lengths[1] = static_cast<int>(str2_.size());
   }
+
+  MPI_Bcast(lengths.data(), 2, MPI_INT, 0, MPI_COMM_WORLD);
+
+  if (rank != 0) {
+    str1_.resize(lengths[0]);
+    str2_.resize(lengths[1]);
+  }
+
+  MPI_Bcast(str1_.data(), lengths[0], MPI_CHAR, 0, MPI_COMM_WORLD);
+  MPI_Bcast(str2_.data(), lengths[1], MPI_CHAR, 0, MPI_COMM_WORLD);
 
   return true;
 }
@@ -64,43 +62,37 @@ bool SosninaADiffCountMPI::RunImpl() {
   std::size_t str1_len = str1_.size();
   std::size_t str2_len = str2_.size();
   std::size_t total_len = std::max(str1_len, str2_len);
-  std::size_t min_len = std::min(str1_len, str2_len);
 
   if (total_len == 0) {
     diff_counter_ = 0;
     return true;
   }
 
-  std::size_t block_size = total_len / size;
+  std::size_t chunk_size = total_len / size;
   std::size_t remainder = total_len % size;
 
-  std::size_t start =
-      (static_cast<std::size_t>(rank) * block_size) + std::min(static_cast<std::size_t>(rank), remainder);
-  std::size_t end = start + block_size;
-  if (std::cmp_less(rank, remainder)) {
+  std::size_t start = rank * chunk_size + std::min(static_cast<std::size_t>(rank), remainder);
+  std::size_t end = start + chunk_size;
+  if (static_cast<std::size_t>(rank) < remainder) {
     end += 1;
   }
-  end = std::min(end, total_len);
 
+  // подсчёт несовпадений на своём отрезке
   int local_diff_count = 0;
-  for (std::size_t i = start; i < end; i++) {
-    if (i >= min_len || str1_[i] != str2_[i]) {
+  for (std::size_t i = start; i < end && i < total_len; i++) {
+    if (i >= str1_len) {
+      local_diff_count++;
+    } else if (i >= str2_len) {
+      local_diff_count++;
+    } else if (str1_[i] != str2_[i]) {
       local_diff_count++;
     }
   }
 
-  diff_counter_ = local_diff_count;
-
   if (size > 1) {
-    if (rank == 0) {
-      for (int i = 1; i < size; i++) {
-        int received_count = 0;
-        MPI_Recv(&received_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        diff_counter_ += received_count;
-      }
-    } else {
-      MPI_Send(&local_diff_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
-    }
+    MPI_Reduce(&local_diff_count, &diff_counter_, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  } else {
+    diff_counter_ = local_diff_count;
   }
 
   return true;
@@ -113,9 +105,7 @@ bool SosninaADiffCountMPI::PostProcessingImpl() {
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   if (size > 1) {
-    int end_result = diff_counter_;
-    MPI_Bcast(&end_result, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    diff_counter_ = end_result;
+    MPI_Bcast(&diff_counter_, 1, MPI_INT, 0, MPI_COMM_WORLD);
   }
 
   GetOutput() = diff_counter_;
