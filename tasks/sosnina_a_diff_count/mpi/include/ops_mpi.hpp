@@ -13,7 +13,7 @@ class SosninaADiffCountMPI : public BaseTask {
     return ppc::task::TypeOfTask::kMPI;
   }
 
-  explicit SosninaADiffCountMPI(const InType &in);
+  explicit SosninaADiffCountMPI(InType in);
 
   [[nodiscard]] int GetDiffCount() const;
 

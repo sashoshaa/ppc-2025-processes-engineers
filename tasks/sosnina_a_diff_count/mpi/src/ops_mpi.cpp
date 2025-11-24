@@ -5,20 +5,21 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <utility>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
 
 namespace sosnina_a_diff_count {
 
-SosninaADiffCountMPI::SosninaADiffCountMPI(const InType &in) {
+SosninaADiffCountMPI::SosninaADiffCountMPI(InType in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = 0;
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   if (rank == 0) {
-    str1_ = in.first;
-    str2_ = in.second;
+    str1_ = std::move(in.first);
+    str2_ = std::move(in.second);
   }
 }
 
