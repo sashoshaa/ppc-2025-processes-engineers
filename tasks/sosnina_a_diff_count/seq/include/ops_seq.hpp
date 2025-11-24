@@ -1,8 +1,5 @@
 #pragma once
 
-#include <string>
-#include <utility>
-
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -14,7 +11,7 @@ class SosninaADiffCountSEQ : public BaseTask {
     return ppc::task::TypeOfTask::kSEQ;
   }
 
-  explicit SosninaADiffCountSEQ(const InType &in);
+  explicit SosninaADiffCountSEQ(InType in);
 
   [[nodiscard]] int GetDiffCount() const;
 

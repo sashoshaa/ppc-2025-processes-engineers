@@ -3,13 +3,12 @@
 #include <algorithm>
 #include <cstddef>
 #include <string>
-#include <utility>
 
 #include "sosnina_a_diff_count/common/include/common.hpp"
 
 namespace sosnina_a_diff_count {
 
-SosninaADiffCountSEQ::SosninaADiffCountSEQ(const InType &in) : input_(in) {
+SosninaADiffCountSEQ::SosninaADiffCountSEQ(InType in) : input_(std::move(in)) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = 0;
 }
@@ -31,9 +30,7 @@ bool SosninaADiffCountSEQ::RunImpl() {
   diff_counter_ = 0;
 
   for (std::size_t i = 0; i < total_len; i++) {
-    if (i >= str1.size() || i >= str2.size()) {
-      diff_counter_++;
-    } else if (str1[i] != str2[i]) {
+    if (i >= str1.size() || i >= str2.size() || str1[i] != str2[i]) {
       diff_counter_++;
     }
   }
