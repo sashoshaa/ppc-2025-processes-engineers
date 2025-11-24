@@ -69,20 +69,16 @@ bool SosninaADiffCountMPI::RunImpl() {
   std::size_t chunk_size = total_len / size;
   std::size_t remainder = total_len % size;
 
-  std::size_t start = rank * chunk_size + std::min(static_cast<std::size_t>(rank), remainder);
+  std::size_t start = (rank * chunk_size) + std::min(static_cast<std::size_t>(rank), remainder);
   std::size_t end = start + chunk_size;
-  if (static_cast<std::size_t>(rank) < remainder) {
+  if (std::cmp_less(rank, remainder)) {
     end += 1;
   }
 
   // подсчёт несовпадений на своём отрезке
   int local_diff_count = 0;
   for (std::size_t i = start; i < end && i < total_len; i++) {
-    if (i >= str1_len) {
-      local_diff_count++;
-    } else if (i >= str2_len) {
-      local_diff_count++;
-    } else if (str1_[i] != str2_[i]) {
+    if (i >= str1_len || i >= str2_len || str1_[i] != str2_[i]) {
       local_diff_count++;
     }
   }
