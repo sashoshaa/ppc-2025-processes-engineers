@@ -24,16 +24,17 @@ SosninaADiffCountMPI::SosninaADiffCountMPI(InType in) {
 }
 
 bool SosninaADiffCountMPI::ValidationImpl() {
+  int mpi_initialized = 0;
+  MPI_Initialized(&mpi_initialized);
+
+  if (mpi_initialized == 0) {
+    return false;
+  }
+
   int rank = 0;
   int size = 1;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  int mpi_initialized = 0;
-  MPI_Initialized(&mpi_initialized);
-  if (mpi_initialized == 0) {
-    return false;
-  }
 
   if (size < 1) {
     return false;

@@ -1,8 +1,6 @@
-#include <gtest/gtest.h>
-
-#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <map>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -41,8 +39,9 @@ class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
       }
     }
   }
+
   bool CheckTestOutputData(OutType &output_data) final {
-    static const std::map<int, int> expected_results = {// FunctionalTests
+    static const std::map<int, int> kExpectedResults = {// FunctionalTests
                                                         {1, 1},
                                                         {2, 2},
                                                         {3, 0},
@@ -78,8 +77,8 @@ class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
                                                         {31, 5},
                                                         {32, 1}};
 
-    auto it = expected_results.find(test_id_);
-    if (it != expected_results.end()) {
+    auto it = kExpectedResults.find(test_id_);
+    if (it != kExpectedResults.end()) {
       return output_data == it->second;
     }
 
@@ -92,10 +91,10 @@ class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
   }
 
  private:
-  int test_id_;
-  std::string test_name_;
-  std::string str1_;
-  std::string str2_;
+  int test_id_{};
+  std::string test_name_{};
+  std::string str1_{};
+  std::string str2_{};
 };
 
 namespace {
