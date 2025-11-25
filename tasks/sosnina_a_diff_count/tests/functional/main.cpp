@@ -5,6 +5,9 @@
 #include <tuple>
 #include <utility>
 
+// Добавляем необходимые заголовки для Google Test
+#include <gtest/gtest.h>
+
 #include "sosnina_a_diff_count/common/include/common.hpp"
 #include "sosnina_a_diff_count/mpi/include/ops_mpi.hpp"
 #include "sosnina_a_diff_count/seq/include/ops_seq.hpp"
@@ -92,9 +95,10 @@ class SosninaADiffCountFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
 
  private:
   int test_id_{};
-  std::string test_name_{};
-  std::string str1_{};
-  std::string str2_{};
+  // Убираем избыточные инициализаторы для строк
+  std::string test_name_;
+  std::string str1_;
+  std::string str2_;
 };
 
 namespace {
