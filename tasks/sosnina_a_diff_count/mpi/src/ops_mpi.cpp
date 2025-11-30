@@ -94,26 +94,14 @@ bool SosninaADiffCountMPI::RunImpl() {
     }
   }
 
-  if (size > 1) {
-    MPI_Reduce(&local_diff_count, &diff_counter_, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-  } else {
-    diff_counter_ = local_diff_count;
-  }
+  MPI_Reduce(&local_diff_count, &diff_counter_, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&diff_counter_, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  GetOutput() = diff_counter_;
 
   return true;
 }
 
 bool SosninaADiffCountMPI::PostProcessingImpl() {
-  int rank = 0;
-  int size = 1;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  if (size > 1) {
-    MPI_Bcast(&diff_counter_, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  }
-
-  GetOutput() = diff_counter_;
   return true;
 }
 
