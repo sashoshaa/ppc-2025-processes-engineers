@@ -22,7 +22,8 @@ bool SosninaAMatrixMultHorizontalSEQ::ValidationImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::PreProcessingImpl() {
-  result_matrix_.clear();
+  // Очищаем вывод (если нужно)
+  GetOutput() = std::vector<std::vector<double>>();
   return true;
 }
 
@@ -34,15 +35,18 @@ bool SosninaAMatrixMultHorizontalSEQ::RunImpl() {
   size_t colsA = matrixA[0].size();
   size_t colsB = matrixB[0].size();
   
-  // Инициализация результирующей матрицы
-  result_matrix_.resize(rowsA, std::vector<double>(colsB, 0.0));
+  // Инициализация результирующей матрицы ПРЯМО в GetOutput()
+  auto& output = GetOutput();
+  output.resize(rowsA, std::vector<double>(colsB, 0.0));
   
   // Умножение матриц
   for (size_t i = 0; i < rowsA; i++) {
     for (size_t j = 0; j < colsB; j++) {
+      double sum = 0.0;
       for (size_t k = 0; k < colsA; k++) {
-        result_matrix_[i][j] += matrixA[i][k] * matrixB[k][j];
+        sum += matrixA[i][k] * matrixB[k][j];
       }
+      output[i][j] = sum;
     }
   }
   
@@ -50,7 +54,7 @@ bool SosninaAMatrixMultHorizontalSEQ::RunImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::PostProcessingImpl() {
-  GetOutput() = result_matrix_;
+  // Теперь здесь ничего не нужно делать, результат уже в GetOutput()
   return true;
 }
 

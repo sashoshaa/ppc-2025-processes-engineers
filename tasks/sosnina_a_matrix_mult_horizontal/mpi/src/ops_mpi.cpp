@@ -10,34 +10,42 @@ namespace sosnina_a_matrix_mult_horizontal {
 
 SosninaAMatrixMultHorizontalMPI::SosninaAMatrixMultHorizontalMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
+  // Инициализация вывода как пустой матрицы
   GetOutput() = std::vector<std::vector<double>>();
   
-  matrix_A_ = in.first;
-  matrix_B_ = in.second;
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    matrix_A_ = in.first;
+    matrix_B_ = in.second;
+  }
 }
 
 bool SosninaAMatrixMultHorizontalMPI::ValidationImpl() {
-  if (matrix_A_.empty() || matrix_B_.empty()) return false;
-  
-  size_t colsA = matrix_A_[0].size();
-  size_t rowsB = matrix_B_.size();
-  
-  for (const auto& row : matrix_A_) {
-    if (row.size() != colsA) return false;
+  int mpi_initialized = 0;
+  MPI_Initialized(&mpi_initialized);
+
+  if (mpi_initialized == 0) {
+    return false;
   }
-  
-  size_t colsB = (rowsB > 0) ? matrix_B_[0].size() : 0;
-  for (const auto& row : matrix_B_) {
-    if (row.size() != colsB) return false;
-  }
-  
-  return colsA == rowsB;
+
+  int size = 1;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  return size >= 1;
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PreProcessingImpl() {
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size_);
-  result_matrix_.clear();
+  int rank = 0, size = 1;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  
+  rank_ = rank;
+  world_size_ = size;
+  
+  // Очищаем вывод
+  GetOutput() = std::vector<std::vector<double>>();
+  
   return true;
 }
 
@@ -63,7 +71,11 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
 
   // 3. Проверка совместимости
   if (colsA != rowsB) {
-    if (rank_ == 0) result_matrix_.clear();
+    if (rank_ == 0) {
+      GetOutput() = std::vector<std::vector<double>>();
+    } else {
+      GetOutput() = std::vector<std::vector<double>>();
+    }
     return true;
   }
 
@@ -80,7 +92,6 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     B_linear.resize(rowsB * colsB);
   }
   
-  // ОДИН Bcast вместо rowsB отдельных Bcast!
   MPI_Bcast(B_linear.data(), rowsB * colsB, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   
   // Преобразуем линейный массив обратно в матрицу для удобства умножения
@@ -167,12 +178,14 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
   }
 
   // 8. Сбор результатов в процессе 0
+  std::vector<std::vector<double>> final_result;
+  
   if (rank_ == 0) {
-    result_matrix_.resize(rowsA, std::vector<double>(colsB, 0.0));
+    final_result.resize(rowsA, std::vector<double>(colsB, 0.0));
     
     // Копируем свою часть
     for (int i = 0; i < local_rows; i++) {
-      result_matrix_[start_row + i] = local_result[i];
+      final_result[start_row + i] = local_result[i];
     }
     
     // Получаем от других процессов
@@ -189,7 +202,7 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
         std::vector<double> row(colsB);
         MPI_Recv(row.data(), colsB, MPI_DOUBLE, proc, 3, 
                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        result_matrix_[proc_start + i] = row;
+        final_result[proc_start + i] = row;
       }
     }
   } else {
@@ -199,15 +212,15 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     }
   }
 
-  // 9. Рассылаем финальную матрицу всем процессам
+  // 9. Рассылаем финальную матрицу всем процессам и сохраняем в GetOutput()
   if (rank_ == 0) {
     // Процесс 0 готовит линейный массив для рассылки
     std::vector<double> result_linear;
     result_linear.reserve(rowsA * colsB);
     for (int i = 0; i < rowsA; i++) {
       result_linear.insert(result_linear.end(), 
-                          result_matrix_[i].begin(), 
-                          result_matrix_[i].end());
+                          final_result[i].begin(), 
+                          final_result[i].end());
     }
     
     // Рассылаем размеры всем процессам
@@ -217,6 +230,8 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     // Рассылаем данные
     MPI_Bcast(result_linear.data(), rowsA * colsB, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
+    // Сохраняем результат в GetOutput() (для процесса 0)
+    GetOutput() = final_result;
   } else {
     // Получаем размеры
     MPI_Bcast(&rowsA, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -226,13 +241,14 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     std::vector<double> result_linear(rowsA * colsB);
     MPI_Bcast(result_linear.data(), rowsA * colsB, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
-    // Преобразуем в матрицу
-    result_matrix_.resize(rowsA, std::vector<double>(colsB));
+    // Преобразуем в матрицу и сохраняем в GetOutput()
+    std::vector<std::vector<double>> result_matrix(rowsA, std::vector<double>(colsB));
     for (int i = 0; i < rowsA; i++) {
       std::copy(result_linear.begin() + i * colsB,
                 result_linear.begin() + (i + 1) * colsB,
-                result_matrix_[i].begin());
+                result_matrix[i].begin());
     }
+    GetOutput() = result_matrix;  // ← сохраняем результат ПРЯМО здесь!
   }
 
   // Синхронизация
@@ -242,7 +258,7 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PostProcessingImpl() {
-  GetOutput() = result_matrix_;
+  // Теперь здесь ничего не нужно делать, результат уже в GetOutput()
   return true;
 }
 
