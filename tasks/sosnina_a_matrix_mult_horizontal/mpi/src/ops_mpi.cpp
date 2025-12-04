@@ -1,13 +1,10 @@
 #include "sosnina_a_matrix_mult_horizontal/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <vector>
 #include <utility>
-
-#include "sosnina_a_matrix_mult_horizontal/common/include/common.hpp"
 
 namespace sosnina_a_matrix_mult_horizontal {
 
@@ -15,14 +12,26 @@ SosninaAMatrixMultHorizontalMPI::SosninaAMatrixMultHorizontalMPI(const InType &i
   SetTypeOfTask(GetStaticTypeOfTask());
   GetOutput() = std::vector<std::vector<double>>();
   
-  // Сохраняем входные данные
   matrix_A_ = in.first;
   matrix_B_ = in.second;
 }
 
 bool SosninaAMatrixMultHorizontalMPI::ValidationImpl() {
   if (matrix_A_.empty() || matrix_B_.empty()) return false;
-  return matrix_A_[0].size() == matrix_B_.size();
+  
+  size_t colsA = matrix_A_[0].size();
+  size_t rowsB = matrix_B_.size();
+  
+  for (const auto& row : matrix_A_) {
+    if (row.size() != colsA) return false;
+  }
+  
+  size_t colsB = (rowsB > 0) ? matrix_B_[0].size() : 0;
+  for (const auto& row : matrix_B_) {
+    if (row.size() != colsB) return false;
+  }
+  
+  return colsA == rowsB;
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PreProcessingImpl() {
@@ -32,144 +41,208 @@ bool SosninaAMatrixMultHorizontalMPI::PreProcessingImpl() {
   return true;
 }
 
-std::vector<std::vector<double>> SosninaAMatrixMultHorizontalMPI::MultiplyLocalPart(
-    const std::vector<std::vector<double>> &local_A, 
-    const std::vector<std::vector<double>> &matrix_B) {
-  
-  size_t local_rows = local_A.size();
-  size_t colsA = local_A[0].size();
-  size_t colsB = matrix_B[0].size();
-  
-  std::vector<std::vector<double>> local_result(local_rows, std::vector<double>(colsB, 0.0));
-  
-  for (size_t i = 0; i < local_rows; i++) {
-    for (size_t j = 0; j < colsB; j++) {
-      for (size_t k = 0; k < colsA; k++) {
-        local_result[i][j] += local_A[i][k] * matrix_B[k][j];
-      }
-    }
-  }
-  
-  return local_result;
-}
-
 bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
-  size_t rowsA = matrix_A_.size();
-  size_t colsA = matrix_A_[0].size();
-  size_t rowsB = matrix_B_.size();
-  size_t colsB = matrix_B_[0].size();
-
-  // Рассылаем размеры матрицы B всем процессам
-  int dims[2] = {static_cast<int>(rowsB), static_cast<int>(colsB)};
-  MPI_Bcast(dims, 2, MPI_INT, 0, MPI_COMM_WORLD);
+  // 1. Определяем размеры на процессе 0
+  int rowsA = 0, colsA = 0, rowsB = 0, colsB = 0;
   
-  // Процессы кроме 0 получают матрицу B
-  if (rank_ != 0) {
-    matrix_B_.resize(dims[0], std::vector<double>(dims[1]));
-  }
-  
-  // Рассылаем матрицу B всем процессам
-  for (size_t i = 0; i < rowsB; i++) {
-    MPI_Bcast(matrix_B_[i].data(), colsB, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  }
-
-  // Вычисление количества строк матрицы A для каждого процесса
-  size_t rows_per_process = rowsA / world_size_;
-  size_t remainder = rowsA % world_size_;
-  
-  // Определение диапазона строк для текущего процесса
-  size_t start_row, local_rows;
-  if (rank_ < remainder) {
-    local_rows = rows_per_process + 1;
-    start_row = rank_ * local_rows;
-  } else {
-    local_rows = rows_per_process;
-    start_row = remainder * (rows_per_process + 1) + (rank_ - remainder) * rows_per_process;
-  }
-
-  // Процесс 0 рассылает части матрицы A
   if (rank_ == 0) {
-    // Отправляем части матрицы A другим процессам
+    rowsA = static_cast<int>(matrix_A_.size());
+    colsA = rowsA > 0 ? static_cast<int>(matrix_A_[0].size()) : 0;
+    rowsB = static_cast<int>(matrix_B_.size());
+    colsB = rowsB > 0 ? static_cast<int>(matrix_B_[0].size()) : 0;
+  }
+
+  // 2. Рассылаем размеры всем процессам
+  int sizes[4] = {rowsA, colsA, rowsB, colsB};
+  MPI_Bcast(sizes, 4, MPI_INT, 0, MPI_COMM_WORLD);
+  
+  rowsA = sizes[0];
+  colsA = sizes[1];
+  rowsB = sizes[2];
+  colsB = sizes[3];
+
+  // 3. Проверка совместимости
+  if (colsA != rowsB) {
+    if (rank_ == 0) result_matrix_.clear();
+    return true;
+  }
+
+  // 4. Рассылаем матрицу B всем процессам ОДНИМ Bcast
+  std::vector<double> B_linear;
+  if (rank_ == 0) {
+    // Процесс 0 готовит линейный массив
+    B_linear.reserve(rowsB * colsB);
+    for (int i = 0; i < rowsB; i++) {
+      B_linear.insert(B_linear.end(), matrix_B_[i].begin(), matrix_B_[i].end());
+    }
+  } else {
+    // Другие процессы резервируют память
+    B_linear.resize(rowsB * colsB);
+  }
+  
+  // ОДИН Bcast вместо rowsB отдельных Bcast!
+  MPI_Bcast(B_linear.data(), rowsB * colsB, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  
+  // Преобразуем линейный массив обратно в матрицу для удобства умножения
+  std::vector<std::vector<double>> local_B(rowsB, std::vector<double>(colsB));
+  for (int i = 0; i < rowsB; i++) {
+    std::copy(B_linear.begin() + i * colsB,
+              B_linear.begin() + (i + 1) * colsB,
+              local_B[i].begin());
+  }
+
+  // 5. Распределяем матрицу A по строкам
+  int rows_per_process = rowsA / world_size_;
+  int rows_remainder = rowsA % world_size_;
+  
+  // Количество строк для текущего процесса
+  int local_rows = (rank_ < rows_remainder) ? rows_per_process + 1 : rows_per_process;
+  
+  // Начальный индекс строк для текущего процесса
+  int start_row = 0;
+  for (int p = 0; p < rank_; p++) {
+    start_row += (p < rows_remainder) ? rows_per_process + 1 : rows_per_process;
+  }
+
+  // 6. Подготавливаем буфер для локальной части A
+  std::vector<std::vector<double>> local_A(local_rows, std::vector<double>(colsA));
+
+  if (rank_ == 0) {
+    // Процесс 0 копирует свою часть
+    for (int i = 0; i < local_rows; i++) {
+      local_A[i] = matrix_A_[start_row + i];
+    }
+    
+    // Отправляем части другим процессам
     for (int proc = 1; proc < world_size_; proc++) {
-      size_t proc_start_row, proc_rows;
-      if (proc < remainder) {
-        proc_rows = rows_per_process + 1;
-        proc_start_row = proc * proc_rows;
-      } else {
-        proc_rows = rows_per_process;
-        proc_start_row = remainder * (rows_per_process + 1) + (proc - remainder) * rows_per_process;
+      // Вычисляем параметры для процесса proc
+      int proc_rows = (proc < rows_remainder) ? rows_per_process + 1 : rows_per_process;
+      int proc_start = 0;
+      for (int p = 0; p < proc; p++) {
+        proc_start += (p < rows_remainder) ? rows_per_process + 1 : rows_per_process;
       }
       
       // Отправляем количество строк
-      int send_rows = static_cast<int>(proc_rows);
-      MPI_Send(&send_rows, 1, MPI_INT, proc, 0, MPI_COMM_WORLD);
+      MPI_Send(&proc_rows, 1, MPI_INT, proc, 0, MPI_COMM_WORLD);
       
-      // Отправляем каждую строку матрицы A
-      for (size_t i = 0; i < proc_rows; i++) {
-        MPI_Send(matrix_A_[proc_start_row + i].data(), colsA, MPI_DOUBLE, proc, 0, MPI_COMM_WORLD);
+      // Отправляем start_row
+      MPI_Send(&proc_start, 1, MPI_INT, proc, 1, MPI_COMM_WORLD);
+      
+      // Отправляем строки
+      for (int i = 0; i < proc_rows; i++) {
+        MPI_Send(matrix_A_[proc_start + i].data(), colsA, MPI_DOUBLE, 
+                proc, 2, MPI_COMM_WORLD);
       }
     }
-    
-    // Локальная часть для процесса 0
-    local_rows = (remainder > 0) ? rows_per_process + 1 : rows_per_process;
-    start_row = 0;
   } else {
     // Получаем количество строк
-    int recv_rows;
-    MPI_Recv(&recv_rows, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    local_rows = recv_rows;
+    MPI_Recv(&local_rows, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    // Получаем start_row
+    MPI_Recv(&start_row, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    // Перераспределяем память
+    local_A.resize(local_rows, std::vector<double>(colsA));
     
     // Получаем строки матрицы A
-    matrix_A_.resize(local_rows, std::vector<double>(colsA));
-    for (size_t i = 0; i < local_rows; i++) {
-      MPI_Recv(matrix_A_[i].data(), colsA, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    for (int i = 0; i < local_rows; i++) {
+      std::vector<double> row(colsA);
+      MPI_Recv(row.data(), colsA, MPI_DOUBLE, 0, 2, 
+              MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      local_A[i] = row;
     }
   }
 
-  // Локальное умножение
-  std::vector<std::vector<double>> local_result = MultiplyLocalPart(matrix_A_, matrix_B_);
+  // 7. Локальное умножение
+  std::vector<std::vector<double>> local_result(local_rows, std::vector<double>(colsB, 0.0));
+  
+  for (int i = 0; i < local_rows; i++) {
+    for (int j = 0; j < colsB; j++) {
+      double sum = 0.0;
+      for (int k = 0; k < colsA; k++) {
+        sum += local_A[i][k] * local_B[k][j];
+      }
+      local_result[i][j] = sum;
+    }
+  }
 
-  // Сбор результатов в процессе 0
+  // 8. Сбор результатов в процессе 0
   if (rank_ == 0) {
     result_matrix_.resize(rowsA, std::vector<double>(colsB, 0.0));
     
-    // Копируем локальный результат процесса 0
-    for (size_t i = 0; i < local_rows; i++) {
-      result_matrix_[i] = local_result[i];
+    // Копируем свою часть
+    for (int i = 0; i < local_rows; i++) {
+      result_matrix_[start_row + i] = local_result[i];
     }
     
-    // Получаем результаты от других процессов
+    // Получаем от других процессов
     for (int proc = 1; proc < world_size_; proc++) {
-      size_t proc_start_row, proc_rows;
-      if (proc < remainder) {
-        proc_rows = rows_per_process + 1;
-        proc_start_row = proc * proc_rows;
-      } else {
-        proc_rows = rows_per_process;
-        proc_start_row = remainder * (rows_per_process + 1) + (proc - remainder) * rows_per_process;
+      // Вычисляем параметры для процесса proc
+      int proc_rows = (proc < rows_remainder) ? rows_per_process + 1 : rows_per_process;
+      int proc_start = 0;
+      for (int p = 0; p < proc; p++) {
+        proc_start += (p < rows_remainder) ? rows_per_process + 1 : rows_per_process;
       }
       
-      for (size_t i = 0; i < proc_rows; i++) {
-        MPI_Recv(result_matrix_[proc_start_row + i].data(), colsB, MPI_DOUBLE,
-                proc, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      // Получаем строки результата
+      for (int i = 0; i < proc_rows; i++) {
+        std::vector<double> row(colsB);
+        MPI_Recv(row.data(), colsB, MPI_DOUBLE, proc, 3, 
+                MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        result_matrix_[proc_start + i] = row;
       }
     }
   } else {
-    // Отправляем локальные результаты процессу 0
-    for (size_t i = 0; i < local_rows; i++) {
-      MPI_Send(local_result[i].data(), colsB, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+    // Отправляем свои результаты процессу 0
+    for (int i = 0; i < local_rows; i++) {
+      MPI_Send(local_result[i].data(), colsB, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
     }
   }
+
+  // 9. Рассылаем финальную матрицу всем процессам
+  if (rank_ == 0) {
+    // Процесс 0 готовит линейный массив для рассылки
+    std::vector<double> result_linear;
+    result_linear.reserve(rowsA * colsB);
+    for (int i = 0; i < rowsA; i++) {
+      result_linear.insert(result_linear.end(), 
+                          result_matrix_[i].begin(), 
+                          result_matrix_[i].end());
+    }
+    
+    // Рассылаем размеры всем процессам
+    MPI_Bcast(&rowsA, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&colsB, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    
+    // Рассылаем данные
+    MPI_Bcast(result_linear.data(), rowsA * colsB, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    
+  } else {
+    // Получаем размеры
+    MPI_Bcast(&rowsA, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&colsB, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    
+    // Получаем данные
+    std::vector<double> result_linear(rowsA * colsB);
+    MPI_Bcast(result_linear.data(), rowsA * colsB, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    
+    // Преобразуем в матрицу
+    result_matrix_.resize(rowsA, std::vector<double>(colsB));
+    for (int i = 0; i < rowsA; i++) {
+      std::copy(result_linear.begin() + i * colsB,
+                result_linear.begin() + (i + 1) * colsB,
+                result_matrix_[i].begin());
+    }
+  }
+
+  // Синхронизация
+  MPI_Barrier(MPI_COMM_WORLD);
   
   return true;
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PostProcessingImpl() {
-  if (rank_ == 0) {
-    GetOutput() = result_matrix_;
-  } else {
-    GetOutput() = std::vector<std::vector<double>>();
-  }
+  GetOutput() = result_matrix_;
   return true;
 }
 
