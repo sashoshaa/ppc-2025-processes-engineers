@@ -20,7 +20,7 @@ class SosninaAMatrixMultHorizontalRunPerfTests : public ppc::util::BaseRunPerfTe
   void SetUp() override {
     matrixA_ = std::vector<std::vector<double>>(kSize, std::vector<double>(kSize));
     matrixB_ = std::vector<std::vector<double>>(kSize, std::vector<double>(kSize));
-    
+
     for (size_t i = 0; i < kSize; ++i) {
       for (size_t j = 0; j < kSize; ++j) {
         matrixA_[i][j] = (i * kSize + j) * 0.001;
@@ -47,7 +47,8 @@ TEST_P(SosninaAMatrixMultHorizontalRunPerfTests, RunPerfModes) {
 }
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, SosninaAMatrixMultHorizontalMPI, SosninaAMatrixMultHorizontalSEQ>(PPC_SETTINGS_sosnina_a_matrix_mult_horizontal);
+    ppc::util::MakeAllPerfTasks<InType, SosninaAMatrixMultHorizontalMPI, SosninaAMatrixMultHorizontalSEQ>(
+        PPC_SETTINGS_sosnina_a_matrix_mult_horizontal);
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
 const auto kPerfTestName = SosninaAMatrixMultHorizontalRunPerfTests::CustomPerfTestName;

@@ -1,14 +1,15 @@
 #pragma once
 
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include "sosnina_a_matrix_mult_horizontal/common/include/common.hpp"
 #include "task/include/task.hpp"
 
 namespace sosnina_a_matrix_mult_horizontal {
 
-using InTypeTriple = std::pair<std::vector<std::vector<double>>, std::vector<std::vector<double>>>;  // входная пара матриц A и B
+using InTypeTriple =
+    std::pair<std::vector<std::vector<double>>, std::vector<std::vector<double>>>;  // входная пара матриц A и B
 
 class SosninaAMatrixMultHorizontalSEQ : public BaseTask {
  public:

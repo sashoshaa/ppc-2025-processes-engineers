@@ -17,8 +17,8 @@ class SosninaAMatrixMultHorizontalMPI : public BaseTask {
   explicit SosninaAMatrixMultHorizontalMPI(const InType &in);
 
  private:
-  std::vector<std::vector<double>> MultiplyLocalPart(const std::vector<std::vector<double>> &local_A, 
-                                                    const std::vector<std::vector<double>> &matrix_B);
+  std::vector<std::vector<double>> MultiplyLocalPart(const std::vector<std::vector<double>> &local_A,
+                                                     const std::vector<std::vector<double>> &matrix_B);
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;

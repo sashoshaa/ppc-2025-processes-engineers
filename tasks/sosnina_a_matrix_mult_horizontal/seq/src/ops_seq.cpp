@@ -1,8 +1,9 @@
 #include "sosnina_a_matrix_mult_horizontal/seq/include/ops_seq.hpp"
+
 #include <algorithm>
 #include <cstddef>
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace sosnina_a_matrix_mult_horizontal {
 
@@ -13,11 +14,13 @@ SosninaAMatrixMultHorizontalSEQ::SosninaAMatrixMultHorizontalSEQ(InTypeTriple in
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::ValidationImpl() {
-  const auto& matrixA = input_.first;
-  const auto& matrixB = input_.second;
-  
+  const auto &matrixA = input_.first;
+  const auto &matrixB = input_.second;
+
   // Проверка: количество столбцов матрицы A должно равняться количеству строк матрицы B
-  if (matrixA.empty() || matrixB.empty()) return false;
+  if (matrixA.empty() || matrixB.empty()) {
+    return false;
+  }
   return matrixA[0].size() == matrixB.size();
 }
 
@@ -28,17 +31,17 @@ bool SosninaAMatrixMultHorizontalSEQ::PreProcessingImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::RunImpl() {
-  const auto& matrixA = input_.first;
-  const auto& matrixB = input_.second;
-  
+  const auto &matrixA = input_.first;
+  const auto &matrixB = input_.second;
+
   size_t rowsA = matrixA.size();
   size_t colsA = matrixA[0].size();
   size_t colsB = matrixB[0].size();
-  
+
   // Инициализация результирующей матрицы ПРЯМО в GetOutput()
-  auto& output = GetOutput();
+  auto &output = GetOutput();
   output.resize(rowsA, std::vector<double>(colsB, 0.0));
-  
+
   // Умножение матриц
   for (size_t i = 0; i < rowsA; i++) {
     for (size_t j = 0; j < colsB; j++) {
@@ -49,7 +52,7 @@ bool SosninaAMatrixMultHorizontalSEQ::RunImpl() {
       output[i][j] = sum;
     }
   }
-  
+
   return true;
 }
 
