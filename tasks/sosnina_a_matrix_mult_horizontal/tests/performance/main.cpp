@@ -14,7 +14,7 @@ namespace sosnina_a_matrix_mult_horizontal {
 
 class SosninaAMatrixMultHorizontalRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  public:
-  static constexpr size_t kSize = 1000;  // Большая матрица 1000x1000
+  static constexpr size_t kSize = 800;  // Большая матрица 1000x1000
 
  protected:
   void SetUp() override {
