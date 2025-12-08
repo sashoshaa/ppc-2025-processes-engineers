@@ -95,14 +95,14 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
   // 6. ЛЕНТОЧНОЕ распределение матрицы A
   // Определяем какие строки получает каждый процесс
   // Строка i идет процессу (i % world_size_)
-  
+
   // Сначала определим сколько строк у каждого процесса
   int base_rows = rows_a / world_size_;
   int extra_rows = rows_a % world_size_;
-  
+
   // Количество строк для текущего процесса
   int local_rows = base_rows + (rank_ < extra_rows ? 1 : 0);
-  
+
   // Создаем массив с номерами строк для этого процесса
   std::vector<int> my_row_indices;
   for (int i = 0; i < rows_a; i++) {
@@ -110,7 +110,7 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
       my_row_indices.push_back(i);
     }
   }
-  
+
   // Должно совпадать с local_rows
   if (static_cast<int>(my_row_indices.size()) != local_rows) {
     local_rows = my_row_indices.size();
@@ -137,17 +137,17 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
           dest_rows.push_back(i);
         }
       }
-      
+
       int dest_row_count = dest_rows.size();
-      
+
       // ВАЖНО: отправляем даже если 0 строк!
       // Сначала отправляем количество строк
       MPI_Send(&dest_row_count, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
-      
+
       if (dest_row_count > 0) {
         // Отправляем номера строк
         MPI_Send(dest_rows.data(), dest_row_count, MPI_INT, dest, 1, MPI_COMM_WORLD);
-        
+
         // Отправляем данные строк
         std::vector<double> buffer(dest_row_count * cols_a);
         for (int idx = 0; idx < dest_row_count; idx++) {
@@ -162,24 +162,23 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
   } else {
     // Получаем количество строк
     MPI_Recv(&local_rows, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    
+
     // Перераспределяем память если нужно
     if (local_rows > 0) {
       my_row_indices.resize(local_rows);
       local_a_flat.resize(local_rows * cols_a);
-      
+
       // Получаем номера строк
       MPI_Recv(my_row_indices.data(), local_rows, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      
+
       // Получаем данные
-      MPI_Recv(local_a_flat.data(), local_rows * cols_a, MPI_DOUBLE, 
-               0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(local_a_flat.data(), local_rows * cols_a, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
   }
 
   // 8. Локальное умножение
   std::vector<double> local_result_flat(local_rows * cols_b, 0.0);
-  
+
   for (int i = 0; i < local_rows; i++) {
     for (int j = 0; j < cols_b; j++) {
       double sum = 0.0;
@@ -192,10 +191,10 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
 
   // 9. Собираем результаты на процессе 0
   std::vector<double> final_result_flat;
-  
+
   if (rank_ == 0) {
     final_result_flat.resize(rows_a * cols_b, 0.0);
-    
+
     // Копируем свои результаты
     for (size_t idx = 0; idx < my_row_indices.size(); idx++) {
       int global_row = my_row_indices[idx];
@@ -213,15 +212,14 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
           src_rows.push_back(i);
         }
       }
-      
+
       int src_row_count = src_rows.size();
-      
+
       // ВАЖНО: всегда пытаемся получить, даже если 0 строк
       if (src_row_count > 0) {
         std::vector<double> buffer(src_row_count * cols_b);
-        MPI_Recv(buffer.data(), src_row_count * cols_b, MPI_DOUBLE,
-                 src, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        
+        MPI_Recv(buffer.data(), src_row_count * cols_b, MPI_DOUBLE, src, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
         // Копируем полученные результаты
         for (int idx = 0; idx < src_row_count; idx++) {
           int global_row = src_rows[idx];
@@ -244,8 +242,7 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
   } else {
     // Отправляем результаты процессу 0
     // ВАЖНО: отправляем даже если local_rows == 0!
-    MPI_Send(local_result_flat.data(), local_rows * cols_b, MPI_DOUBLE,
-             0, 3, MPI_COMM_WORLD);
+    MPI_Send(local_result_flat.data(), local_rows * cols_b, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
   }
 
   // 10. Рассылаем финальный результат всем процессам
