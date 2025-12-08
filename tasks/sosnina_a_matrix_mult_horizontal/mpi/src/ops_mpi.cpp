@@ -2,16 +2,14 @@
 
 #include <mpi.h>
 
-#include <algorithm>
+#include <array>
 #include <cstddef>
-#include <utility>
 #include <vector>
 
 namespace sosnina_a_matrix_mult_horizontal {
 
 SosninaAMatrixMultHorizontalMPI::SosninaAMatrixMultHorizontalMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
-  // Инициализация вывода как пустой матрицы
   GetOutput() = std::vector<std::vector<double>>();
 
   int rank = 0;
@@ -37,22 +35,23 @@ bool SosninaAMatrixMultHorizontalMPI::ValidationImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PreProcessingImpl() {
-  int rank = 0, size = 1;
+  int rank = 0;
+  int size = 1;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   rank_ = rank;
   world_size_ = size;
-
-  // Очищаем вывод
   GetOutput() = std::vector<std::vector<double>>();
 
   return true;
 }
 
 bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
-  // 1. Определяем размеры на процессе 0
-  int rows_a = 0, cols_a = 0, rows_b = 0, cols_b = 0;
+  int rows_a = 0;
+  int cols_a = 0;
+  int rows_b = 0;
+  int cols_b = 0;
 
   if (rank_ == 0) {
     rows_a = static_cast<int>(matrix_A_.size());
@@ -61,50 +60,39 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     cols_b = rows_b > 0 ? static_cast<int>(matrix_B_[0].size()) : 0;
   }
 
-  // 2. Рассылаем размеры всем процессам
-  int sizes[4] = {rows_a, cols_a, rows_b, cols_b};
-  MPI_Bcast(sizes, 4, MPI_INT, 0, MPI_COMM_WORLD);
+  std::array<int, 4> sizes = {rows_a, cols_a, rows_b, cols_b};
+  MPI_Bcast(sizes.data(), 4, MPI_INT, 0, MPI_COMM_WORLD);
 
   rows_a = sizes[0];
   cols_a = sizes[1];
   rows_b = sizes[2];
   cols_b = sizes[3];
 
-  // 3. Проверка совместимости
   if (cols_a != rows_b) {
     GetOutput() = std::vector<std::vector<double>>();
     return true;
   }
 
-  // 4. Если одна из матриц пустая
   if (rows_a == 0 || cols_a == 0 || rows_b == 0 || cols_b == 0) {
     GetOutput() = std::vector<std::vector<double>>();
     return true;
   }
 
-  // 5. Рассылаем матрицу B всем процессам
-  std::vector<double> b_flat(rows_b * cols_b);
+  std::vector<double> b_flat(static_cast<size_t>(rows_b) * static_cast<size_t>(cols_b));
   if (rank_ == 0) {
     for (int i = 0; i < rows_b; i++) {
       for (int j = 0; j < cols_b; j++) {
-        b_flat[i * cols_b + j] = matrix_B_[i][j];
+        b_flat[static_cast<size_t>(i) * static_cast<size_t>(cols_b) + static_cast<size_t>(j)] = matrix_B_[i][j];
       }
     }
   }
   MPI_Bcast(b_flat.data(), rows_b * cols_b, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-  // 6. ЛЕНТОЧНОЕ распределение матрицы A
-  // Определяем какие строки получает каждый процесс
-  // Строка i идет процессу (i % world_size_)
-
-  // Сначала определим сколько строк у каждого процесса
   int base_rows = rows_a / world_size_;
   int extra_rows = rows_a % world_size_;
 
-  // Количество строк для текущего процесса
   int local_rows = base_rows + (rank_ < extra_rows ? 1 : 0);
 
-  // Создаем массив с номерами строк для этого процесса
   std::vector<int> my_row_indices;
   for (int i = 0; i < rows_a; i++) {
     if (i % world_size_ == rank_) {
@@ -112,26 +100,21 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     }
   }
 
-  // Должно совпадать с local_rows
   if (static_cast<int>(my_row_indices.size()) != local_rows) {
-    local_rows = my_row_indices.size();
+    local_rows = static_cast<int>(my_row_indices.size());
   }
 
-  // 7. Получаем локальные строки матрицы A (ЛЕНТОЧНО!)
-  std::vector<double> local_a_flat(local_rows * cols_a);
+  std::vector<double> local_a_flat(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_a));
 
   if (rank_ == 0) {
-    // Процесс 0 копирует СВОИ строки (ленточное распределение)
     for (size_t idx = 0; idx < my_row_indices.size(); idx++) {
       int global_row = my_row_indices[idx];
       for (int j = 0; j < cols_a; j++) {
-        local_a_flat[idx * cols_a + j] = matrix_A_[global_row][j];
+        local_a_flat[idx * static_cast<size_t>(cols_a) + static_cast<size_t>(j)] = matrix_A_[global_row][j];
       }
     }
 
-    // Отправляем другим процессам ИХ строки (ленточное распределение)
     for (int dest = 1; dest < world_size_; dest++) {
-      // Определяем строки для процесса dest
       std::vector<int> dest_rows;
       for (int i = 0; i < rows_a; i++) {
         if (i % world_size_ == dest) {
@@ -139,73 +122,62 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
         }
       }
 
-      int dest_row_count = dest_rows.size();
+      int dest_row_count = static_cast<int>(dest_rows.size());
 
-      // Сначала отправляем количество строк
       MPI_Send(&dest_row_count, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
 
       if (dest_row_count > 0) {
-        // Отправляем номера строк
         MPI_Send(dest_rows.data(), dest_row_count, MPI_INT, dest, 1, MPI_COMM_WORLD);
 
-        // Отправляем данные строк
-        std::vector<double> buffer(dest_row_count * cols_a);
+        std::vector<double> buffer(static_cast<size_t>(dest_row_count) * static_cast<size_t>(cols_a));
         for (int idx = 0; idx < dest_row_count; idx++) {
           int global_row = dest_rows[idx];
           for (int j = 0; j < cols_a; j++) {
-            buffer[idx * cols_a + j] = matrix_A_[global_row][j];
+            buffer[idx * static_cast<size_t>(cols_a) + static_cast<size_t>(j)] = matrix_A_[global_row][j];
           }
         }
         MPI_Send(buffer.data(), dest_row_count * cols_a, MPI_DOUBLE, dest, 2, MPI_COMM_WORLD);
       }
     }
   } else {
-    // Получаем количество строк
     MPI_Recv(&local_rows, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    // Перераспределяем память если нужно
     if (local_rows > 0) {
-      my_row_indices.resize(local_rows);
-      local_a_flat.resize(local_rows * cols_a);
+      my_row_indices.resize(static_cast<size_t>(local_rows));
+      local_a_flat.resize(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_a));
 
-      // Получаем номера строк
       MPI_Recv(my_row_indices.data(), local_rows, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-      // Получаем данные
       MPI_Recv(local_a_flat.data(), local_rows * cols_a, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
   }
 
-  // 8. Локальное умножение
-  std::vector<double> local_result_flat(local_rows * cols_b, 0.0);
+  std::vector<double> local_result_flat(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_b), 0.0);
 
   for (int i = 0; i < local_rows; i++) {
     for (int j = 0; j < cols_b; j++) {
       double sum = 0.0;
       for (int k = 0; k < cols_a; k++) {
-        sum += local_a_flat[i * cols_a + k] * b_flat[k * cols_b + j];
+        sum += local_a_flat[i * static_cast<size_t>(cols_a) + static_cast<size_t>(k)] *
+               b_flat[k * static_cast<size_t>(cols_b) + static_cast<size_t>(j)];
       }
-      local_result_flat[i * cols_b + j] = sum;
+      local_result_flat[i * static_cast<size_t>(cols_b) + static_cast<size_t>(j)] = sum;
     }
   }
 
-  // 9. Собираем результаты на процессе 0
   std::vector<double> final_result_flat;
 
   if (rank_ == 0) {
-    final_result_flat.resize(rows_a * cols_b, 0.0);
+    final_result_flat.resize(static_cast<size_t>(rows_a) * static_cast<size_t>(cols_b), 0.0);
 
-    // Копируем свои результаты
     for (size_t idx = 0; idx < my_row_indices.size(); idx++) {
       int global_row = my_row_indices[idx];
       for (int j = 0; j < cols_b; j++) {
-        final_result_flat[global_row * cols_b + j] = local_result_flat[idx * cols_b + j];
+        final_result_flat[global_row * static_cast<size_t>(cols_b) + static_cast<size_t>(j)] =
+            local_result_flat[idx * static_cast<size_t>(cols_b) + static_cast<size_t>(j)];
       }
     }
 
-    // Получаем результаты от других процессов
     for (int src = 1; src < world_size_; src++) {
-      // Определяем строки для процесса src
       std::vector<int> src_rows;
       for (int i = 0; i < rows_a; i++) {
         if (i % world_size_ == src) {
@@ -213,45 +185,38 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
         }
       }
 
-      int src_row_count = src_rows.size();
+      int src_row_count = static_cast<int>(src_rows.size());
 
-      // Получаем ТОЛЬКО если у процесса есть строки
       if (src_row_count > 0) {
-        std::vector<double> buffer(src_row_count * cols_b);
+        std::vector<double> buffer(static_cast<size_t>(src_row_count) * static_cast<size_t>(cols_b));
         MPI_Recv(buffer.data(), src_row_count * cols_b, MPI_DOUBLE, src, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        // Копируем полученные результаты
         for (int idx = 0; idx < src_row_count; idx++) {
           int global_row = src_rows[idx];
           for (int j = 0; j < cols_b; j++) {
-            final_result_flat[global_row * cols_b + j] = buffer[idx * cols_b + j];
+            final_result_flat[global_row * static_cast<size_t>(cols_b) + static_cast<size_t>(j)] =
+                buffer[idx * static_cast<size_t>(cols_b) + static_cast<size_t>(j)];
           }
         }
       }
-      // Если src_row_count == 0 - НЕ получаем ничего!
     }
   } else {
-    // Отправляем результаты процессу 0
-    // Отправляем ТОЛЬКО если есть что отправлять!
     if (local_rows > 0) {
       MPI_Send(local_result_flat.data(), local_rows * cols_b, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
     }
-    // Если local_rows == 0 - НИЧЕГО не отправляем!
   }
 
-  // 10. Рассылаем финальный результат всем процессам
   if (rank_ == 0) {
     MPI_Bcast(final_result_flat.data(), rows_a * cols_b, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   } else {
-    final_result_flat.resize(rows_a * cols_b);
+    final_result_flat.resize(static_cast<size_t>(rows_a) * static_cast<size_t>(cols_b));
     MPI_Bcast(final_result_flat.data(), rows_a * cols_b, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   }
 
-  // 11. Преобразуем в матрицу
   std::vector<std::vector<double>> result_matrix(rows_a, std::vector<double>(cols_b));
   for (int i = 0; i < rows_a; i++) {
     for (int j = 0; j < cols_b; j++) {
-      result_matrix[i][j] = final_result_flat[i * cols_b + j];
+      result_matrix[i][j] = final_result_flat[i * static_cast<size_t>(cols_b) + static_cast<size_t>(j)];
     }
   }
 
@@ -260,7 +225,6 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PostProcessingImpl() {
-  // Теперь здесь ничего не нужно делать, результат уже в GetOutput()
   return true;
 }
 

@@ -17,16 +17,31 @@ bool SosninaAMatrixMultHorizontalSEQ::ValidationImpl() {
   const auto &matrixA = input_.first;
   const auto &matrixB = input_.second;
 
-  // Проверка: количество столбцов матрицы A должно равняться количеству строк матрицы B
+  // Проверка на пустые матрицы
   if (matrixA.empty() || matrixB.empty()) {
     return false;
   }
-  return matrixA[0].size() == matrixB.size();
+
+  // Проверка, что все строки матрицы A имеют одинаковый размер
+  size_t colsA = matrixA[0].size();
+  for (size_t i = 1; i < matrixA.size(); i++) {
+    if (matrixA[i].size() != colsA) {
+      return false;
+    }
+  }
+
+  // Проверка, что все строки матрицы B имеют одинаковый размер
+  size_t colsB = matrixB[0].size();
+  for (size_t i = 1; i < matrixB.size(); i++) {
+    if (matrixB[i].size() != colsB) {
+      return false;
+    }
+  }
+  return colsA == matrixB.size();
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::PreProcessingImpl() {
-  // Очищаем вывод (если нужно)
-  GetOutput() = std::vector<std::vector<double>>();
+  GetOutput().clear();
   return true;
 }
 
@@ -36,20 +51,24 @@ bool SosninaAMatrixMultHorizontalSEQ::RunImpl() {
 
   size_t rowsA = matrixA.size();
   size_t colsA = matrixA[0].size();
+  size_t rowsB = matrixB.size();
   size_t colsB = matrixB[0].size();
 
-  // Инициализация результирующей матрицы ПРЯМО в GetOutput()
   auto &output = GetOutput();
-  output.resize(rowsA, std::vector<double>(colsB, 0.0));
 
-  // Умножение матриц
+  output = std::vector<std::vector<double>>(rowsA, std::vector<double>(colsB, 0.0));
+
   for (size_t i = 0; i < rowsA; i++) {
-    for (size_t j = 0; j < colsB; j++) {
-      double sum = 0.0;
-      for (size_t k = 0; k < colsA; k++) {
-        sum += matrixA[i][k] * matrixB[k][j];
+    const auto &rowA = matrixA[i];
+    auto &rowOutput = output[i];
+
+    for (size_t k = 0; k < colsA; k++) {
+      double aik = rowA[k];
+      const auto &rowB = matrixB[k];
+
+      for (size_t j = 0; j < colsB; j++) {
+        rowOutput[j] += aik * rowB[j];
       }
-      output[i][j] = sum;
     }
   }
 
@@ -57,7 +76,6 @@ bool SosninaAMatrixMultHorizontalSEQ::RunImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::PostProcessingImpl() {
-  // Теперь здесь ничего не нужно делать, результат уже в GetOutput()
   return true;
 }
 
