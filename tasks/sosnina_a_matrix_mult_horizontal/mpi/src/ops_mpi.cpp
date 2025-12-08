@@ -143,11 +143,12 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
       local_result[i][j] = sum;
     }
   }
-
   // 8. Только процесс 0 собирает полный результат
+  std::vector<std::vector<double>> final_result;
+
   if (rank_ == 0) {
     // Создаем результирующую матрицу
-    std::vector<std::vector<double>> final_result(rowsA, std::vector<double>(colsB, 0.0));
+    final_result.resize(rowsA, std::vector<double>(colsB, 0.0));
 
     // Копируем свою часть
     for (int i = 0; i < local_rows; i++) {
@@ -166,20 +167,50 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
         MPI_Recv(final_result[proc_start + i].data(), colsB, MPI_DOUBLE, proc, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
     }
-
-    // Процесс 0 устанавливает результат
-    GetOutput() = final_result;
   } else {
     // Отправляем результаты процессу 0
     for (int i = 0; i < local_rows; i++) {
       MPI_Send(local_result[i].data(), colsB, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
     }
-
-    // Процессы не-0 устанавливают пустой результат
-    GetOutput() = std::vector<std::vector<double>>();
   }
 
-  return true;
+  // 9. Рассылаем результат ВСЕМ процессам
+  // ВАЖНО: Все процессы должны участвовать в Bcast, независимо от rank
+
+  // Сначала рассылаем размеры ВСЕМ процессам
+  int result_rows, result_cols;
+  if (rank_ == 0) {
+    result_rows = rowsA;
+    result_cols = colsB;
+  }
+  MPI_Bcast(&result_rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&result_cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  // Подготавливаем буфер для рассылки/приема
+  std::vector<double> result_flat(result_rows * result_cols);
+
+  if (rank_ == 0) {
+    // Процесс 0 заполняет буфер
+    for (int i = 0; i < result_rows; i++) {
+      for (int j = 0; j < result_cols; j++) {
+        result_flat[i * result_cols + j] = final_result[i][j];
+      }
+    }
+  }
+
+  // Рассылаем данные ВСЕМ процессам
+  MPI_Bcast(result_flat.data(), result_rows * result_cols, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+  // ВСЕ процессы преобразуют плоский массив в матрицу
+  std::vector<std::vector<double>> result_matrix(result_rows, std::vector<double>(result_cols));
+  for (int i = 0; i < result_rows; i++) {
+    for (int j = 0; j < result_cols; j++) {
+      result_matrix[i][j] = result_flat[i * result_cols + j];
+    }
+  }
+
+  // ВСЕ процессы устанавливают результат
+  GetOutput() = result_matrix;
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PostProcessingImpl() {
