@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <vector>
 
 #include "sosnina_a_matrix_mult_horizontal/common/include/common.hpp"
@@ -17,8 +16,8 @@ class SosninaAMatrixMultHorizontalMPI : public BaseTask {
   explicit SosninaAMatrixMultHorizontalMPI(const InType &in);
 
  private:
-  std::vector<std::vector<double>> MultiplyLocalPart(const std::vector<std::vector<double>> &local_A,
-                                                     const std::vector<std::vector<double>> &matrix_B);
+  std::vector<std::vector<double>> MultiplyLocalPart(const std::vector<std::vector<double>> &local_a,
+                                                     const std::vector<std::vector<double>> &matrix_b);
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
