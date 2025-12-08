@@ -16,8 +16,6 @@ class SosninaAMatrixMultHorizontalMPI : public BaseTask {
   explicit SosninaAMatrixMultHorizontalMPI(const InType &in);
 
  private:
-  std::vector<std::vector<double>> MultiplyLocalPart(const std::vector<std::vector<double>> &local_a,
-                                                     const std::vector<std::vector<double>> &matrix_b);
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
@@ -33,6 +31,16 @@ class SosninaAMatrixMultHorizontalMPI : public BaseTask {
   void GatherResults(std::vector<double> &final_result_flat, const std::vector<int> &my_row_indices,
                      const std::vector<double> &local_result_flat, int local_rows, int rows_a, int cols_b) const;
   void ConvertToMatrix(const std::vector<double> &final_result_flat, int rows_a, int cols_b);
+
+  void FillLocalAFlat(const std::vector<int> &my_row_indices, std::vector<double> &local_a_flat, int cols_a);
+  void SendRowsToProcess(int dest, const std::vector<int> &dest_rows, int cols_a);
+  std::vector<int> GetRowsForProcess(int process_rank, int rows_a) const;
+  void ReceiveRowsFromRoot(int &local_rows, std::vector<int> &my_row_indices, std::vector<double> &local_a_flat,
+                           int cols_a);
+  void CollectLocalResults(const std::vector<int> &my_row_indices, const std::vector<double> &local_result_flat,
+                           std::vector<double> &final_result_flat, int cols_b) const;
+  void ReceiveResultsFromProcess(int src, std::vector<double> &final_result_flat, int cols_b) const;
+  void SendLocalResults(const std::vector<double> &local_result_flat, int local_rows, int cols_b) const;
 
   std::vector<std::vector<double>> matrix_A_;
   std::vector<std::vector<double>> matrix_B_;
