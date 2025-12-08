@@ -175,7 +175,6 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
   }
 
   // 9. Рассылаем результат ВСЕМ процессам
-  // ВАЖНО: Все процессы должны участвовать в Bcast, независимо от rank
 
   // Сначала рассылаем размеры ВСЕМ процессам
   int result_rows, result_cols;
@@ -183,6 +182,8 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     result_rows = rowsA;
     result_cols = colsB;
   }
+
+  // ВАЖНО: Все процессы должны вызвать Bcast!
   MPI_Bcast(&result_rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&result_cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -198,7 +199,7 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     }
   }
 
-  // Рассылаем данные ВСЕМ процессам
+  // ВАЖНО: Все процессы вызывают Bcast с одинаковым размером!
   MPI_Bcast(result_flat.data(), result_rows * result_cols, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
   // ВСЕ процессы преобразуют плоский массив в матрицу

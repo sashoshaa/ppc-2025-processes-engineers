@@ -40,8 +40,9 @@ class SosninaAMatrixMultHorizontalFuncTests : public ppc::util::BaseRunFuncTests
       return false;
     }
 
-    // Проверяем значения с допуском
-    double tolerance = 1e-6;
+    // Используем достаточно маленький допуск
+    const double tolerance = 1e-10;
+
     for (size_t i = 0; i < expected_.size(); i++) {
       for (size_t j = 0; j < expected_[i].size(); j++) {
         if (std::abs(output_data[i][j] - expected_[i][j]) > tolerance) {
