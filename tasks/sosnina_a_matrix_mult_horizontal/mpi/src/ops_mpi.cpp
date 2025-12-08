@@ -125,7 +125,7 @@ void SosninaAMatrixMultHorizontalMPI::DistributeMatrixAData(std::vector<int> &my
     }
   }
 
-  if (static_cast<int>(my_row_indices.size()) != local_rows) {
+  if (my_row_indices.size() != static_cast<size_t>(local_rows)) {
     local_rows = static_cast<int>(my_row_indices.size());
   }
 
@@ -195,7 +195,7 @@ void SosninaAMatrixMultHorizontalMPI::ComputeLocalMultiplication(const std::vect
 void SosninaAMatrixMultHorizontalMPI::GatherResults(std::vector<double> &final_result_flat,
                                                     const std::vector<int> &my_row_indices,
                                                     const std::vector<double> &local_result_flat, int local_rows,
-                                                    int rows_a, int cols_b) {
+                                                    int rows_a, int cols_b) const {
   if (rank_ == 0) {
     final_result_flat.resize(static_cast<size_t>(rows_a) * static_cast<size_t>(cols_b), 0.0);
 

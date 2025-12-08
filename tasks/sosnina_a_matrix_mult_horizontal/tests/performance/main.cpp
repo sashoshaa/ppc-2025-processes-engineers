@@ -22,7 +22,7 @@ class SosninaAMatrixMultHorizontalRunPerfTests : public ppc::util::BaseRunPerfTe
 
     for (size_t i = 0; i < kSize; ++i) {
       for (size_t j = 0; j < kSize; ++j) {
-        matrix_a_[i][j] = static_cast<double>(i * kSize + j) * 0.001;
+        matrix_a_[i][j] = static_cast<double>((i * kSize) + j) * 0.001;
         matrix_b_[i][j] = static_cast<double>(i + j) * 0.002;
       }
     }
