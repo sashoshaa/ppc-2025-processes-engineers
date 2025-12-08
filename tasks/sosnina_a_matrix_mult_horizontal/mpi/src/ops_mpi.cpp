@@ -156,8 +156,7 @@ void SosninaAMatrixMultHorizontalMPI::FillLocalAFlat(const std::vector<int> &my_
   for (size_t idx = 0; idx < my_row_indices.size(); ++idx) {
     int global_row = my_row_indices[idx];
     for (int j = 0; j < cols_a; ++j) {
-      local_a_flat[(idx * static_cast<size_t>(cols_a)) + static_cast<size_t>(j)] =
-          matrix_A_[global_row][j];
+      local_a_flat[(idx * static_cast<size_t>(cols_a)) + static_cast<size_t>(j)] = matrix_A_[global_row][j];
     }
   }
 }
@@ -202,8 +201,7 @@ void SosninaAMatrixMultHorizontalMPI::ReceiveRowsFromRoot(int &local_rows, std::
     local_a_flat.resize(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_a));
 
     MPI_Recv(my_row_indices.data(), local_rows, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(local_a_flat.data(), local_rows * cols_a, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD,
-             MPI_STATUS_IGNORE);
+    MPI_Recv(local_a_flat.data(), local_rows * cols_a, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 }
 
@@ -239,7 +237,7 @@ void SosninaAMatrixMultHorizontalMPI::CollectLocalResults(const std::vector<int>
     int global_row = my_row_indices[idx];
     for (int j = 0; j < cols_b; ++j) {
       final_result_flat[(static_cast<size_t>(global_row) * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)] =
-      local_result_flat[(idx * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
+          local_result_flat[(idx * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
     }
   }
 }
@@ -252,8 +250,7 @@ void SosninaAMatrixMultHorizontalMPI::ReceiveResultsFromProcess(int src, std::ve
 
   if (src_row_count > 0) {
     std::vector<double> buffer(static_cast<size_t>(src_row_count) * static_cast<size_t>(cols_b));
-    MPI_Recv(buffer.data(), src_row_count * cols_b, MPI_DOUBLE, src, 3, MPI_COMM_WORLD,
-             MPI_STATUS_IGNORE);
+    MPI_Recv(buffer.data(), src_row_count * cols_b, MPI_DOUBLE, src, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     for (int idx = 0; idx < src_row_count; ++idx) {
       int global_row = src_rows[idx];
