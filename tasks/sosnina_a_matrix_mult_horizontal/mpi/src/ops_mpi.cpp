@@ -3,10 +3,10 @@
 #include <mpi.h>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
-#include <vector>
 #include <utility>
-#include <cmath> 
+#include <vector>
 
 namespace sosnina_a_matrix_mult_horizontal {
 

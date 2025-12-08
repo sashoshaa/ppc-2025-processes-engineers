@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <cmath> 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <string>
 #include <tuple>
