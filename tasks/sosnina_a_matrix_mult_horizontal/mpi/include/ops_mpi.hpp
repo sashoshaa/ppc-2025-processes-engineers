@@ -22,6 +22,18 @@ class SosninaAMatrixMultHorizontalMPI : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
+
+  // Добавить эти новые методы:
+  bool PrepareAndValidateSizes(int &rows_a, int &cols_a, int &rows_b, int &cols_b);
+  void PrepareAndBroadcastMatrixB(std::vector<double> &b_flat, int rows_b, int cols_b);
+  void DistributeMatrixAData(std::vector<int> &my_row_indices, std::vector<double> &local_a_flat, int &local_rows,
+                             int rows_a, int cols_a);
+  void ComputeLocalMultiplication(const std::vector<double> &local_a_flat, const std::vector<double> &b_flat,
+                                  std::vector<double> &local_result_flat, int local_rows, int cols_a, int cols_b);
+  void GatherResults(std::vector<double> &final_result_flat, const std::vector<int> &my_row_indices,
+                     const std::vector<double> &local_result_flat, int local_rows, int rows_a, int cols_b);
+  void ConvertToMatrix(const std::vector<double> &final_result_flat, int rows_a, int cols_b);
+
   std::vector<std::vector<double>> matrix_A_;
   std::vector<std::vector<double>> matrix_B_;
   std::vector<std::vector<double>> result_matrix_;

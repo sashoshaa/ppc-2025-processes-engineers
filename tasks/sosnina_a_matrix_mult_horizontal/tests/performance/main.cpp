@@ -13,17 +13,17 @@ namespace sosnina_a_matrix_mult_horizontal {
 
 class SosninaAMatrixMultHorizontalRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  public:
-  static constexpr size_t kSize = 800;  // Большая матрица 1000x1000
+  static constexpr size_t kSize = 800;
 
  protected:
   void SetUp() override {
-    matrixA_ = std::vector<std::vector<double>>(kSize, std::vector<double>(kSize));
-    matrixB_ = std::vector<std::vector<double>>(kSize, std::vector<double>(kSize));
+    matrix_a_ = std::vector<std::vector<double>>(kSize, std::vector<double>(kSize));
+    matrix_b_ = std::vector<std::vector<double>>(kSize, std::vector<double>(kSize));
 
     for (size_t i = 0; i < kSize; ++i) {
       for (size_t j = 0; j < kSize; ++j) {
-        matrixA_[i][j] = (i * kSize + j) * 0.001;
-        matrixB_[i][j] = (i + j) * 0.002;
+        matrix_a_[i][j] = static_cast<double>(i * kSize + j) * 0.001;
+        matrix_b_[i][j] = static_cast<double>(i + j) * 0.002;
       }
     }
   }
@@ -33,12 +33,12 @@ class SosninaAMatrixMultHorizontalRunPerfTests : public ppc::util::BaseRunPerfTe
   }
 
   InType GetTestInputData() final {
-    return std::make_pair(matrixA_, matrixB_);
+    return std::make_pair(matrix_a_, matrix_b_);
   }
 
  private:
-  std::vector<std::vector<double>> matrixA_;
-  std::vector<std::vector<double>> matrixB_;
+  std::vector<std::vector<double>> matrix_a_;
+  std::vector<std::vector<double>> matrix_b_;
 };
 
 TEST_P(SosninaAMatrixMultHorizontalRunPerfTests, RunPerfModes) {

@@ -1,6 +1,5 @@
 #include "sosnina_a_matrix_mult_horizontal/seq/include/ops_seq.hpp"
 
-#include <algorithm>
 #include <cstddef>
 #include <utility>
 #include <vector>
@@ -13,28 +12,28 @@ SosninaAMatrixMultHorizontalSEQ::SosninaAMatrixMultHorizontalSEQ(InTypeTriple in
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::ValidationImpl() {
-  const auto &matrixA = input_.first;
-  const auto &matrixB = input_.second;
+  const auto &matrix_a = input_.first;
+  const auto &matrix_b = input_.second;
 
-  if (matrixA.empty() || matrixB.empty()) {
+  if (matrix_a.empty() || matrix_b.empty()) {
     return false;
   }
 
-  size_t colsA = matrixA[0].size();
-  for (size_t i = 1; i < matrixA.size(); i++) {
-    if (matrixA[i].size() != colsA) {
+  size_t cols_a = matrix_a[0].size();
+  for (size_t i = 1; i < matrix_a.size(); i++) {
+    if (matrix_a[i].size() != cols_a) {
       return false;
     }
   }
 
-  size_t colsB = matrixB[0].size();
-  for (size_t i = 1; i < matrixB.size(); i++) {
-    if (matrixB[i].size() != colsB) {
+  size_t cols_b = matrix_b[0].size();
+  for (size_t i = 1; i < matrix_b.size(); i++) {
+    if (matrix_b[i].size() != cols_b) {
       return false;
     }
   }
 
-  return colsA == matrixB.size();
+  return cols_a == matrix_b.size();
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::PreProcessingImpl() {
@@ -43,22 +42,22 @@ bool SosninaAMatrixMultHorizontalSEQ::PreProcessingImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalSEQ::RunImpl() {
-  const auto &matrixA = input_.first;
-  const auto &matrixB = input_.second;
+  const auto &matrix_a = input_.first;
+  const auto &matrix_b = input_.second;
 
-  size_t rowsA = matrixA.size();
-  size_t colsA = matrixA[0].size();
-  size_t colsB = matrixB[0].size();
+  size_t rows_a = matrix_a.size();
+  size_t cols_a = matrix_a[0].size();
+  size_t cols_b = matrix_b[0].size();
 
   auto &output = GetOutput();
-  output = std::vector<std::vector<double>>(rowsA, std::vector<double>(colsB, 0.0));
+  output = std::vector<std::vector<double>>(rows_a, std::vector<double>(cols_b, 0.0));
 
   // Умножение матриц
-  for (size_t i = 0; i < rowsA; i++) {
-    for (size_t k = 0; k < colsA; k++) {
-      double aik = matrixA[i][k];
-      for (size_t j = 0; j < colsB; j++) {
-        output[i][j] += aik * matrixB[k][j];
+  for (size_t i = 0; i < rows_a; i++) {
+    for (size_t k = 0; k < cols_a; k++) {
+      double aik = matrix_a[i][k];
+      for (size_t j = 0; j < cols_b; j++) {
+        output[i][j] += aik * matrix_b[k][j];
       }
     }
   }

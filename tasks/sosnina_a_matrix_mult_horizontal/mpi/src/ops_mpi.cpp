@@ -51,9 +51,35 @@ bool SosninaAMatrixMultHorizontalMPI::PreProcessingImpl() {
 }
 
 bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
-  int rows_a = 0, cols_a = 0, rows_b = 0, cols_b = 0;
+  int rows_a = 0;
+  int cols_a = 0;
+  int rows_b = 0;
+  int cols_b = 0;
 
-  // Инициализация размеров на процессе 0
+  if (!PrepareAndValidateSizes(rows_a, cols_a, rows_b, cols_b)) {
+    return true;
+  }
+
+  std::vector<double> b_flat(static_cast<size_t>(rows_b) * static_cast<size_t>(cols_b));
+  PrepareAndBroadcastMatrixB(b_flat, rows_b, cols_b);
+
+  std::vector<int> my_row_indices;
+  std::vector<double> local_a_flat;
+  int local_rows = 0;
+  DistributeMatrixAData(my_row_indices, local_a_flat, local_rows, rows_a, cols_a);
+
+  std::vector<double> local_result_flat(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_b), 0.0);
+  ComputeLocalMultiplication(local_a_flat, b_flat, local_result_flat, local_rows, cols_a, cols_b);
+
+  std::vector<double> final_result_flat;
+  GatherResults(final_result_flat, my_row_indices, local_result_flat, local_rows, rows_a, cols_b);
+
+  ConvertToMatrix(final_result_flat, rows_a, cols_b);
+
+  return true;
+}
+
+bool SosninaAMatrixMultHorizontalMPI::PrepareAndValidateSizes(int &rows_a, int &cols_a, int &rows_b, int &cols_b) {
   if (rank_ == 0) {
     rows_a = static_cast<int>(matrix_A_.size());
     cols_a = rows_a > 0 ? static_cast<int>(matrix_A_[0].size()) : 0;
@@ -61,22 +87,23 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     cols_b = rows_b > 0 ? static_cast<int>(matrix_B_[0].size()) : 0;
   }
 
-  // Передача размеров всем процессам
   std::array<int, 4> sizes = {rows_a, cols_a, rows_b, cols_b};
   MPI_Bcast(sizes.data(), 4, MPI_INT, 0, MPI_COMM_WORLD);
+
   rows_a = sizes[0];
   cols_a = sizes[1];
   rows_b = sizes[2];
   cols_b = sizes[3];
 
-  // Проверка корректности размеров
   if (cols_a != rows_b || rows_a == 0 || cols_a == 0 || rows_b == 0 || cols_b == 0) {
     GetOutput() = std::vector<std::vector<double>>();
-    return true;
+    return false;
   }
 
-  // Подготовка и рассылка матрицы B
-  std::vector<double> b_flat(static_cast<size_t>(rows_b) * static_cast<size_t>(cols_b));
+  return true;
+}
+
+void SosninaAMatrixMultHorizontalMPI::PrepareAndBroadcastMatrixB(std::vector<double> &b_flat, int rows_b, int cols_b) {
   if (rank_ == 0) {
     for (int i = 0; i < rows_b; ++i) {
       for (int j = 0; j < cols_b; ++j) {
@@ -85,10 +112,12 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     }
   }
   MPI_Bcast(b_flat.data(), rows_b * cols_b, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+}
 
-  // Распределение строк матрицы A
-  int local_rows = (rows_a / world_size_) + (rank_ < (rows_a % world_size_) ? 1 : 0);
-  std::vector<int> my_row_indices;
+void SosninaAMatrixMultHorizontalMPI::DistributeMatrixAData(std::vector<int> &my_row_indices,
+                                                            std::vector<double> &local_a_flat, int &local_rows,
+                                                            int rows_a, int cols_a) {
+  local_rows = (rows_a / world_size_) + (rank_ < (rows_a % world_size_) ? 1 : 0);
 
   for (int i = 0; i < rows_a; ++i) {
     if (i % world_size_ == rank_) {
@@ -100,18 +129,16 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     local_rows = static_cast<int>(my_row_indices.size());
   }
 
-  // Передача данных матрицы A
-  std::vector<double> local_a_flat(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_a));
+  local_a_flat.resize(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_a));
 
   if (rank_ == 0) {
-    // Обработка локальных данных
     for (size_t idx = 0; idx < my_row_indices.size(); ++idx) {
+      int global_row = my_row_indices[idx];
       for (int j = 0; j < cols_a; ++j) {
-        local_a_flat[(idx * static_cast<size_t>(cols_a)) + static_cast<size_t>(j)] = matrix_A_[my_row_indices[idx]][j];
+        local_a_flat[(idx * static_cast<size_t>(cols_a)) + static_cast<size_t>(j)] = matrix_A_[global_row][j];
       }
     }
 
-    // Отправка данных другим процессам
     for (int dest = 1; dest < world_size_; ++dest) {
       std::vector<int> dest_rows;
       for (int i = 0; i < rows_a; ++i) {
@@ -125,54 +152,61 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
 
       if (dest_row_count > 0) {
         MPI_Send(dest_rows.data(), dest_row_count, MPI_INT, dest, 1, MPI_COMM_WORLD);
-        std::vector<double> buffer(static_cast<size_t>(dest_row_count) * static_cast<size_t>(cols_a));
 
+        std::vector<double> buffer(static_cast<size_t>(dest_row_count) * static_cast<size_t>(cols_a));
         for (int idx = 0; idx < dest_row_count; ++idx) {
+          int global_row = dest_rows[idx];
           for (int j = 0; j < cols_a; ++j) {
-            buffer[(idx * static_cast<size_t>(cols_a)) + static_cast<size_t>(j)] = matrix_A_[dest_rows[idx]][j];
+            buffer[(idx * static_cast<size_t>(cols_a)) + static_cast<size_t>(j)] = matrix_A_[global_row][j];
           }
         }
-
         MPI_Send(buffer.data(), dest_row_count * cols_a, MPI_DOUBLE, dest, 2, MPI_COMM_WORLD);
       }
     }
   } else {
     MPI_Recv(&local_rows, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
     if (local_rows > 0) {
-      my_row_indices.resize(local_rows);
+      my_row_indices.resize(static_cast<size_t>(local_rows));
       local_a_flat.resize(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_a));
+
       MPI_Recv(my_row_indices.data(), local_rows, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       MPI_Recv(local_a_flat.data(), local_rows * cols_a, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
   }
+}
 
-  // Локальное умножение
-  std::vector<double> local_result_flat(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_b), 0.0);
+void SosninaAMatrixMultHorizontalMPI::ComputeLocalMultiplication(const std::vector<double> &local_a_flat,
+                                                                 const std::vector<double> &b_flat,
+                                                                 std::vector<double> &local_result_flat, int local_rows,
+                                                                 int cols_a, int cols_b) {
   for (int i = 0; i < local_rows; ++i) {
     for (int j = 0; j < cols_b; ++j) {
+      double sum = 0.0;
       for (int k = 0; k < cols_a; ++k) {
-        local_result_flat[(i * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)] +=
-            local_a_flat[(i * static_cast<size_t>(cols_a)) + static_cast<size_t>(k)] *
-            b_flat[(k * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
+        sum += local_a_flat[(i * static_cast<size_t>(cols_a)) + static_cast<size_t>(k)] *
+               b_flat[(k * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
       }
+      local_result_flat[(i * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)] = sum;
     }
   }
+}
 
-  // Сбор результатов
-  std::vector<double> final_result_flat;
-
+void SosninaAMatrixMultHorizontalMPI::GatherResults(std::vector<double> &final_result_flat,
+                                                    const std::vector<int> &my_row_indices,
+                                                    const std::vector<double> &local_result_flat, int local_rows,
+                                                    int rows_a, int cols_b) {
   if (rank_ == 0) {
     final_result_flat.resize(static_cast<size_t>(rows_a) * static_cast<size_t>(cols_b), 0.0);
 
-    // Локальные результаты
     for (size_t idx = 0; idx < my_row_indices.size(); ++idx) {
+      int global_row = my_row_indices[idx];
       for (int j = 0; j < cols_b; ++j) {
-        final_result_flat[(my_row_indices[idx] * static_cast<size_t>(cols_b)) + j] =
-            local_result_flat[(idx * static_cast<size_t>(cols_b)) + j];
+        final_result_flat[(global_row * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)] =
+            local_result_flat[(idx * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
       }
     }
 
-    // Получение результатов от других процессов
     for (int src = 1; src < world_size_; ++src) {
       std::vector<int> src_rows;
       for (int i = 0; i < rows_a; ++i) {
@@ -187,9 +221,10 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
         MPI_Recv(buffer.data(), src_row_count * cols_b, MPI_DOUBLE, src, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         for (int idx = 0; idx < src_row_count; ++idx) {
+          int global_row = src_rows[idx];
           for (int j = 0; j < cols_b; ++j) {
-            final_result_flat[(src_rows[idx] * static_cast<size_t>(cols_b)) + j] =
-                buffer[(idx * static_cast<size_t>(cols_b)) + j];
+            final_result_flat[(global_row * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)] =
+                buffer[(idx * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
           }
         }
       }
@@ -204,17 +239,17 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
     final_result_flat.resize(static_cast<size_t>(rows_a) * static_cast<size_t>(cols_b));
     MPI_Bcast(final_result_flat.data(), rows_a * cols_b, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   }
+}
 
-  // Формирование результата
+void SosninaAMatrixMultHorizontalMPI::ConvertToMatrix(const std::vector<double> &final_result_flat, int rows_a,
+                                                      int cols_b) {
   std::vector<std::vector<double>> result_matrix(rows_a, std::vector<double>(cols_b));
   for (int i = 0; i < rows_a; ++i) {
     for (int j = 0; j < cols_b; ++j) {
-      result_matrix[i][j] = final_result_flat[(i * static_cast<size_t>(cols_b)) + j];
+      result_matrix[i][j] = final_result_flat[(i * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
     }
   }
-
   GetOutput() = result_matrix;
-  return true;
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PostProcessingImpl() {
