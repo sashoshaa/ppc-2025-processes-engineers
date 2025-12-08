@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
+#include <cmath> 
 #include <array>
 #include <cstddef>
 #include <string>

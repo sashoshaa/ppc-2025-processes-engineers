@@ -5,6 +5,8 @@
 #include <array>
 #include <cstddef>
 #include <vector>
+#include <utility>
+#include <cmath> 
 
 namespace sosnina_a_matrix_mult_horizontal {
 
