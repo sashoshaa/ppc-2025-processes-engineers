@@ -211,6 +211,7 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
 
   // ВСЕ процессы устанавливают результат
   GetOutput() = result_matrix;
+  return true;
 }
 
 bool SosninaAMatrixMultHorizontalMPI::PostProcessingImpl() {
