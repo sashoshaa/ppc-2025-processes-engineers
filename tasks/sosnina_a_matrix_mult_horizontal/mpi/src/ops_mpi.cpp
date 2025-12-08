@@ -148,7 +148,7 @@ void SosninaAMatrixMultHorizontalMPI::PrepareAndBroadcastMatrixB(std::vector<dou
     }
   }
 
-  MPI_Bcast(b_flat.data(), static_cast<int>(rows_b * cols_b), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(b_flat.data(), rows_b * cols_b, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 }
 
 void SosninaAMatrixMultHorizontalMPI::FillLocalAFlat(const std::vector<int> &my_row_indices,
@@ -156,7 +156,7 @@ void SosninaAMatrixMultHorizontalMPI::FillLocalAFlat(const std::vector<int> &my_
   for (size_t idx = 0; idx < my_row_indices.size(); ++idx) {
     int global_row = my_row_indices[idx];
     for (int j = 0; j < cols_a; ++j) {
-      local_a_flat[(static_cast<size_t>(idx) * static_cast<size_t>(cols_a)) + static_cast<size_t>(j)] =
+      local_a_flat[(idx * static_cast<size_t>(cols_a)) + static_cast<size_t>(j)] =
           matrix_A_[global_row][j];
     }
   }
@@ -179,7 +179,7 @@ void SosninaAMatrixMultHorizontalMPI::SendRowsToProcess(int dest, const std::vec
       }
     }
 
-    MPI_Send(buffer.data(), static_cast<int>(dest_row_count * cols_a), MPI_DOUBLE, dest, 2, MPI_COMM_WORLD);
+    MPI_Send(buffer.data(), dest_row_count * cols_a, MPI_DOUBLE, dest, 2, MPI_COMM_WORLD);
   }
 }
 
@@ -202,7 +202,7 @@ void SosninaAMatrixMultHorizontalMPI::ReceiveRowsFromRoot(int &local_rows, std::
     local_a_flat.resize(static_cast<size_t>(local_rows) * static_cast<size_t>(cols_a));
 
     MPI_Recv(my_row_indices.data(), local_rows, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(local_a_flat.data(), static_cast<int>(local_rows * cols_a), MPI_DOUBLE, 0, 2, MPI_COMM_WORLD,
+    MPI_Recv(local_a_flat.data(), local_rows * cols_a, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD,
              MPI_STATUS_IGNORE);
   }
 }
@@ -239,7 +239,7 @@ void SosninaAMatrixMultHorizontalMPI::CollectLocalResults(const std::vector<int>
     int global_row = my_row_indices[idx];
     for (int j = 0; j < cols_b; ++j) {
       final_result_flat[(static_cast<size_t>(global_row) * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)] =
-          local_result_flat[(static_cast<size_t>(idx) * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
+      local_result_flat[(idx * static_cast<size_t>(cols_b)) + static_cast<size_t>(j)];
     }
   }
 }
@@ -252,7 +252,7 @@ void SosninaAMatrixMultHorizontalMPI::ReceiveResultsFromProcess(int src, std::ve
 
   if (src_row_count > 0) {
     std::vector<double> buffer(static_cast<size_t>(src_row_count) * static_cast<size_t>(cols_b));
-    MPI_Recv(buffer.data(), static_cast<int>(src_row_count * cols_b), MPI_DOUBLE, src, 3, MPI_COMM_WORLD,
+    MPI_Recv(buffer.data(), src_row_count * cols_b, MPI_DOUBLE, src, 3, MPI_COMM_WORLD,
              MPI_STATUS_IGNORE);
 
     for (int idx = 0; idx < src_row_count; ++idx) {
@@ -269,7 +269,7 @@ void SosninaAMatrixMultHorizontalMPI::SendLocalResults(const std::vector<double>
                                                        int cols_b) {
   if (local_rows > 0) {
     std::vector<double> data_copy = local_result_flat;
-    MPI_Send(data_copy.data(), static_cast<int>(local_rows * cols_b), MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
+    MPI_Send(data_copy.data(), local_rows * cols_b, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
   }
 }
 
@@ -286,12 +286,12 @@ void SosninaAMatrixMultHorizontalMPI::GatherResults(std::vector<double> &final_r
       ReceiveResultsFromProcess(src, final_result_flat, cols_b);
     }
 
-    MPI_Bcast(final_result_flat.data(), static_cast<int>(rows_a * cols_b), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(final_result_flat.data(), rows_a * cols_b, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   } else {
     SendLocalResults(local_result_flat, local_rows, cols_b);
 
     final_result_flat.resize(static_cast<size_t>(rows_a) * static_cast<size_t>(cols_b));
-    MPI_Bcast(final_result_flat.data(), static_cast<int>(rows_a * cols_b), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(final_result_flat.data(), rows_a * cols_b, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   }
 }
 
