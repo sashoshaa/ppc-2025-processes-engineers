@@ -49,6 +49,7 @@ bool SosninaAMatrixMultHorizontalMPI::PreProcessingImpl() {
 
   return true;
 }
+
 bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
   // 1. Определяем размеры на процессе 0
   int rows_a = 0, cols_a = 0, rows_b = 0, cols_b = 0;
@@ -140,7 +141,6 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
 
       int dest_row_count = dest_rows.size();
 
-      // ВАЖНО: отправляем даже если 0 строк!
       // Сначала отправляем количество строк
       MPI_Send(&dest_row_count, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
 
@@ -215,7 +215,7 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
 
       int src_row_count = src_rows.size();
 
-      // ВАЖНО: всегда пытаемся получить, даже если 0 строк
+      // Получаем ТОЛЬКО если у процесса есть строки
       if (src_row_count > 0) {
         std::vector<double> buffer(src_row_count * cols_b);
         MPI_Recv(buffer.data(), src_row_count * cols_b, MPI_DOUBLE, src, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -227,22 +227,16 @@ bool SosninaAMatrixMultHorizontalMPI::RunImpl() {
             final_result_flat[global_row * cols_b + j] = buffer[idx * cols_b + j];
           }
         }
-      } else {
-        // Процесс не имеет строк, но нам нужно проверить не отправил ли он пустое сообщение
-        MPI_Status status;
-        int flag;
-        MPI_Iprobe(src, 3, MPI_COMM_WORLD, &flag, &status);
-        if (flag) {
-          // Если отправил (даже пустое), получаем
-          double dummy;
-          MPI_Recv(&dummy, 0, MPI_DOUBLE, src, 3, MPI_COMM_WORLD, &status);
-        }
       }
+      // Если src_row_count == 0 - НЕ получаем ничего!
     }
   } else {
     // Отправляем результаты процессу 0
-    // ВАЖНО: отправляем даже если local_rows == 0!
-    MPI_Send(local_result_flat.data(), local_rows * cols_b, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
+    // Отправляем ТОЛЬКО если есть что отправлять!
+    if (local_rows > 0) {
+      MPI_Send(local_result_flat.data(), local_rows * cols_b, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
+    }
+    // Если local_rows == 0 - НИЧЕГО не отправляем!
   }
 
   // 10. Рассылаем финальный результат всем процессам
