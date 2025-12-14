@@ -250,8 +250,7 @@ void SosninaAMatrixMultCRSMPI::DistributeMatrixAData() {
 
       if (dest_row_count > 0) {
         // Отправляем номера строк
-        std::vector<int> rows_copy = dest_rows;
-        MPI_Send(rows_copy.data(), dest_row_count, MPI_INT, dest, 1, MPI_COMM_WORLD);
+        MPI_Send(dest_rows.data(), dest_row_count, MPI_INT, dest, 1, MPI_COMM_WORLD);
 
         // Отправляем данные для каждой строки
         for (int row : dest_rows) {
