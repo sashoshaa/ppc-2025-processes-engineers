@@ -105,7 +105,7 @@ bool SosninaAMatrixMultCRSMPI::RunSequential() {
 
   // Умножение матриц
   for (int i = 0; i < n_rows_A_; i++) {
-    ProcessLocalRow(i, row_values[i], row_cols[i]);
+    ProcessRowForSequential(i, row_values[i], row_cols[i]);
     // Обновляем row_ptr
     row_ptr_C_[i + 1] = row_ptr_C_[i] + static_cast<int>(row_cols[i].size());
   }
@@ -123,8 +123,8 @@ bool SosninaAMatrixMultCRSMPI::RunSequential() {
   return true;
 }
 
-void SosninaAMatrixMultCRSMPI::ProcessLocalRow(int row_idx, std::vector<double> &row_values,
-                                               std::vector<int> &row_cols) {
+void SosninaAMatrixMultCRSMPI::ProcessRowForSequential(int row_idx, std::vector<double> &row_values,
+                                                       std::vector<int> &row_cols) {
   // Для каждой строки i матрицы A
   int row_start_a = row_ptr_A_[row_idx];
   int row_end_a = row_ptr_A_[row_idx + 1];
