@@ -1,0 +1,192 @@
+#include "sosnina_a_matrix_mult_crs/seq/include/ops_seq.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <ranges>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+namespace sosnina_a_matrix_mult_crs {
+
+SosninaAMatrixMultCRSSEQ::SosninaAMatrixMultCRSSEQ(InType in)
+    : input_(std::move(in)),
+      n_rows_A_(std::get<6>(input_)),
+      n_cols_A_(std::get<7>(input_)),
+      n_cols_B_(std::get<8>(input_)) {
+  SetTypeOfTask(GetStaticTypeOfTask());
+  GetOutput() = OutType();
+}
+
+bool SosninaAMatrixMultCRSSEQ::ValidationImpl() {
+  // Распаковываем входные данные
+  values_A_ = std::get<0>(input_);
+  col_indices_A_ = std::get<1>(input_);
+  row_ptr_A_ = std::get<2>(input_);
+  values_B_ = std::get<3>(input_);
+  col_indices_B_ = std::get<4>(input_);
+  row_ptr_B_ = std::get<5>(input_);
+  n_rows_A_ = std::get<6>(input_);
+  n_cols_A_ = std::get<7>(input_);
+  n_cols_B_ = std::get<8>(input_);
+
+  // Проверка размерностей
+  if (n_rows_A_ <= 0 || n_cols_A_ <= 0 || n_cols_B_ <= 0) {
+    return false;
+  }
+
+  // Проверка формата CRS для матрицы A
+  // Проверка row_ptr_A
+  if (row_ptr_A_.size() != static_cast<size_t>(n_rows_A_) + 1U) {
+    return false;
+  }
+
+  if (row_ptr_A_[0] != 0) {
+    return false;
+  }
+
+  for (size_t i = 0; i < row_ptr_A_.size() - 1; i++) {
+    if (row_ptr_A_[i] > row_ptr_A_[i + 1]) {
+      return false;
+    }
+  }
+
+  // Проверка соответствия sizes для A
+  if (values_A_.size() != col_indices_A_.size()) {
+    return false;
+  }
+
+  // Проверка col_indices_A
+  for (int col_idx : col_indices_A_) {
+    if (col_idx < 0 || col_idx >= n_cols_A_) {
+      return false;
+    }
+  }
+
+  // Проверка формата CRS для матрицы B
+  int n_rows_b = n_cols_A_;  // Для умножения A*B, число строк B = числу столбцов A
+
+  // Проверка row_ptr_B
+  if (row_ptr_B_.size() != static_cast<size_t>(n_rows_b) + 1U) {
+    return false;
+  }
+
+  if (row_ptr_B_[0] != 0) {
+    return false;
+  }
+
+  for (size_t i = 0; i < row_ptr_B_.size() - 1; i++) {
+    if (row_ptr_B_[i] > row_ptr_B_[i + 1]) {
+      return false;
+    }
+  }
+
+  // Проверка соответствия sizes для B
+  if (values_B_.size() != col_indices_B_.size()) {
+    return false;
+  }
+
+  // Проверка col_indices_B
+  for (int col_idx : col_indices_B_) {
+    if (col_idx < 0 || col_idx >= n_cols_B_) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool SosninaAMatrixMultCRSSEQ::PreProcessingImpl() {
+  // Очищаем результат
+  values_C_.clear();
+  col_indices_C_.clear();
+  row_ptr_C_.clear();
+
+  return true;
+}
+
+bool SosninaAMatrixMultCRSSEQ::RunImpl() {
+  // ВСЯ РАБОТА В РАНЕ!
+
+  // Алгоритм умножения матриц в формате CRS
+  row_ptr_C_.resize(n_rows_A_ + 1, 0);
+  row_ptr_C_[0] = 0;
+
+  // Векторы для накопления результатов
+  std::vector<std::vector<double>> row_values(n_rows_A_);
+  std::vector<std::vector<int>> row_cols(n_rows_A_);
+
+  // Умножение матриц
+  for (int i = 0; i < n_rows_A_; i++) {
+    // Для каждой строки i матрицы A
+    int row_start_a = row_ptr_A_[i];
+    int row_end_a = row_ptr_A_[i + 1];
+
+    // Создаем временный массив для текущей строки результата
+    std::vector<double> temp_row(n_cols_B_, 0.0);
+
+    for (int k_idx = row_start_a; k_idx < row_end_a; k_idx++) {
+      double a_val = values_A_[k_idx];
+      int k = col_indices_A_[k_idx];  // столбец в A = строка в B
+
+      // Умножаем на соответствующую строку B
+      int row_start_b = row_ptr_B_[k];
+      int row_end_b = row_ptr_B_[k + 1];
+
+      for (int j_idx = row_start_b; j_idx < row_end_b; j_idx++) {
+        double b_val = values_B_[j_idx];
+        int j = col_indices_B_[j_idx];
+
+        temp_row[j] += a_val * b_val;
+      }
+    }
+
+    // Собираем ненулевые элементы текущей строки
+    for (int j = 0; j < n_cols_B_; j++) {
+      if (std::abs(temp_row[j]) > 1e-12) {  // Проверка на ненулевое значение
+        row_values[i].push_back(temp_row[j]);
+        row_cols[i].push_back(j);
+      }
+    }
+
+    // Сортируем по столбцам (для правильного формата CRS)
+    if (!row_cols[i].empty()) {
+      // Создаем пары (столбец, значение) для сортировки
+      std::vector<std::pair<int, double>> pairs;
+      pairs.reserve(row_cols[i].size());
+      for (size_t idx = 0; idx < row_cols[i].size(); idx++) {
+        pairs.emplace_back(row_cols[i][idx], row_values[i][idx]);
+      }
+
+      std::ranges::sort(pairs);
+
+      // Обновляем отсортированные данные
+      for (size_t idx = 0; idx < pairs.size(); idx++) {
+        row_cols[i][idx] = pairs[idx].first;
+        row_values[i][idx] = pairs[idx].second;
+      }
+    }
+
+    // Обновляем row_ptr
+    row_ptr_C_[i + 1] = row_ptr_C_[i] + static_cast<int>(row_cols[i].size());
+  }
+
+  // Собираем все значения и индексы
+  for (int i = 0; i < n_rows_A_; i++) {
+    values_C_.insert(values_C_.end(), row_values[i].begin(), row_values[i].end());
+    col_indices_C_.insert(col_indices_C_.end(), row_cols[i].begin(), row_cols[i].end());
+  }
+
+  return true;
+}
+
+bool SosninaAMatrixMultCRSSEQ::PostProcessingImpl() {
+  // Упаковываем результат в OutType
+  OutType result = std::make_tuple(values_C_, col_indices_C_, row_ptr_C_);
+  GetOutput() = result;
+
+  return true;
+}
+
+}  // namespace sosnina_a_matrix_mult_crs
