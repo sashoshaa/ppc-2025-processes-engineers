@@ -20,11 +20,11 @@ SosninaAMatrixMultCRSMPI::SosninaAMatrixMultCRSMPI(const InType &in)
     : values_A_(std::get<0>(in)),
       col_indices_A_(std::get<1>(in)),
       row_ptr_A_(std::get<2>(in)),
+      n_rows_A_(std::get<6>(in)),
+      n_cols_A_(std::get<7>(in)),
       values_B_(std::get<3>(in)),
       col_indices_B_(std::get<4>(in)),
       row_ptr_B_(std::get<5>(in)),
-      n_rows_A_(std::get<6>(in)),
-      n_cols_A_(std::get<7>(in)),
       n_cols_B_(std::get<8>(in)) {
   SetTypeOfTask(GetStaticTypeOfTask());
 }
