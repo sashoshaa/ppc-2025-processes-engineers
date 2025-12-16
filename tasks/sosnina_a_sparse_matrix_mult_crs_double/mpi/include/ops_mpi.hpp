@@ -31,6 +31,7 @@ class SosninaAMatrixMultCRSMPI : public BaseTask {
   void ReceiveMatrixAData();
 
   void ComputeLocalMultiplication();
+  void ProcessRowForSequential(int row_idx, std::vector<double> &row_values, std::vector<int> &row_cols);
   void ProcessLocalRow(int local_idx, std::vector<double> &row_values, std::vector<int> &row_cols);
 
   void GatherResults();
