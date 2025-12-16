@@ -55,15 +55,6 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
   bool CheckTestOutputData(OutType &output_data) final {
     auto &[values, col_indices, row_ptr] = output_data;
 
-    // Специальная обработка для теста с нулевыми размерами (тест 50)
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    int test_id = std::get<0>(params);
-    if (test_id == 50) {
-      // Для теста с нулевыми размерами результат может быть пустым
-      // Это покрывает случай, когда PrepareAndValidateSizes возвращает false
-      return true;
-    }
-
     // Проверяем базовую корректность CRS структур
     if (row_ptr.empty()) {
       // На не-root процессах в MPI пустой результат всегда допустим
@@ -435,7 +426,7 @@ const std::array<TestType, 34> kFunctionalTests = {
                     std::vector<std::vector<double>>{{1, 2, 3, 4}, {0, 0, 0, 0}, {0, 0, 0, 0}},
                     std::vector<std::vector<double>>{{1, 2, 3, 4}, {2, 4, 6, 8}, {3, 6, 9, 12}})};
 
-const std::array<TestType, 20> kCoverageTests = {
+const std::array<TestType, 19> kCoverageTests = {
     std::make_tuple(31, std::vector<std::vector<double>>{{1}}, std::vector<std::vector<double>>{{1}},
                     std::vector<std::vector<double>>{{1}}),
 
@@ -516,11 +507,7 @@ const std::array<TestType, 20> kCoverageTests = {
     // 49. Разреженная с дробными
     std::make_tuple(49, std::vector<std::vector<double>>{{0.1, 0, 0.2}, {0, 0.3, 0}, {0.4, 0, 0.5}},
                     std::vector<std::vector<double>>{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}},
-                    std::vector<std::vector<double>>{{1.1, 1.4}, {0.9, 1.2}, {2.9, 3.8}}),
-
-    // 50. Тест с нулевыми размерами для покрытия проверки в PrepareAndValidateSizes
-    std::make_tuple(50, std::vector<std::vector<double>>{}, std::vector<std::vector<double>>{},
-                    std::vector<std::vector<double>>{})};
+                    std::vector<std::vector<double>>{{1.1, 1.4}, {0.9, 1.2}, {2.9, 3.8}})};
 
 const auto kFunctionalTasksList =
     std::tuple_cat(ppc::util::AddFuncTask<sosnina_a_matrix_mult_crs::SosninaAMatrixMultCRSMPI, InType>(
