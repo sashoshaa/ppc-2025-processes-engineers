@@ -55,7 +55,7 @@ class SosninaAMatrixMultCRSRunPerfTests : public ppc::util::BaseRunPerfTests<InT
 
     // Проверяем, что row_ptr имеет правильный размер (kSize + 1)
     // Но для MPI это может быть не так на не-root процессах
-    if (row_ptr.size() < 1) {
+    if (row_ptr.empty()) {
       return false;
     }
 
@@ -78,8 +78,8 @@ class SosninaAMatrixMultCRSRunPerfTests : public ppc::util::BaseRunPerfTests<InT
 
  private:
   // Создание диагональной матрицы в формате CRS
-  void CreateDiagonalMatrix(std::vector<double> &values, std::vector<int> &col_indices, std::vector<int> &row_ptr,
-                            int n_rows, int n_cols, double diag_value) {
+  static void CreateDiagonalMatrix(std::vector<double> &values, std::vector<int> &col_indices,
+                                   std::vector<int> &row_ptr, int n_rows, int n_cols, double diag_value) {
     values.clear();
     col_indices.clear();
     row_ptr.clear();
@@ -96,13 +96,13 @@ class SosninaAMatrixMultCRSRunPerfTests : public ppc::util::BaseRunPerfTests<InT
         col_indices.push_back(i + 1);
       }
 
-      row_ptr.push_back(values.size());
+      row_ptr.push_back(static_cast<int>(values.size()));
     }
   }
 
   // Добавление внедиагональных элементов
-  void AddOffDiagonalElements(std::vector<double> &values, std::vector<int> &col_indices, std::vector<int> &row_ptr,
-                              int n, int count) {
+  static void AddOffDiagonalElements(std::vector<double> &values, std::vector<int> &col_indices,
+                                     std::vector<int> &row_ptr, int n, int count) {
     // Добавляем count псевдослучайных элементов
     for (int k = 0; k < count; k++) {
       int i = (k * 13) % n;  // Псевдослучайная строка

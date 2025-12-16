@@ -1,6 +1,5 @@
 #pragma once
 
-#include <tuple>
 #include <vector>
 
 #include "sosnina_a_matrix_mult_crs/common/include/common.hpp"
@@ -23,7 +22,7 @@ class SosninaAMatrixMultCRSMPI : public BaseTask {
   bool PostProcessingImpl() override;
   bool RunSequential();
 
-  bool PrepareAndValidateSizes(int &n_rows_A, int &n_cols_A, int &n_cols_B);
+  bool PrepareAndValidateSizes(int &n_rows_a, int &n_cols_a, int &n_cols_b);
 
   void BroadcastMatrixB();
 
@@ -32,13 +31,6 @@ class SosninaAMatrixMultCRSMPI : public BaseTask {
   void ComputeLocalMultiplication();
 
   void GatherResults();
-
-  // Вспомогательные функции для работы с CRS
-  void ConvertToDenseRow(const std::vector<double> &values, const std::vector<int> &col_indices,
-                         const std::vector<int> &row_ptr, int row_index, int n_cols, std::vector<double> &dense_row);
-
-  void ConvertDenseToCRS(const std::vector<double> &dense_row, std::vector<double> &values,
-                         std::vector<int> &col_indices, int &row_start, int row_end, double epsilon = 1e-12);
 
   // Данные в формате CRS
   std::vector<double> values_A_;

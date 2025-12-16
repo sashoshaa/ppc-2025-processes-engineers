@@ -4,7 +4,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <compare>
 #include <cstddef>
+#include <ranges>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -145,16 +147,16 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
 
   InType GetTestInputData() final {
     int n_rows = static_cast<int>(dense_A_.size());
-    int n_cols_A = dense_A_.empty() ? 0 : static_cast<int>(dense_A_[0].size());
-    int n_cols_B = dense_B_.empty() ? 0 : static_cast<int>(dense_B_[0].size());
+    int n_cols_a = dense_A_.empty() ? 0 : static_cast<int>(dense_A_[0].size());
+    int n_cols_b = dense_B_.empty() ? 0 : static_cast<int>(dense_B_[0].size());
     return std::make_tuple(values_A_, col_indices_A_, row_ptr_A_, values_B_, col_indices_B_, row_ptr_B_, n_rows,
-                           n_cols_A, n_cols_B);
+                           n_cols_a, n_cols_b);
   }
 
  private:
   // Конвертация плотной матрицы в CRS формат
-  void ConvertDenseToCRS(const std::vector<std::vector<double>> &dense, std::vector<double> &values,
-                         std::vector<int> &col_indices, std::vector<int> &row_ptr) {
+  static void ConvertDenseToCRS(const std::vector<std::vector<double>> &dense, std::vector<double> &values,
+                                std::vector<int> &col_indices, std::vector<int> &row_ptr) {
     values.clear();
     col_indices.clear();
     row_ptr.clear();
@@ -170,8 +172,9 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
       }
 
       // Сортируем по индексам столбцов (требование CRS формата)
-      std::sort(row_elements.begin(), row_elements.end(),
-                [](const std::pair<int, double> &a, const std::pair<int, double> &b) { return a.first < b.first; });
+      std::ranges::sort(row_elements, [](const std::pair<int, double> &a, const std::pair<int, double> &b) {
+        return a.first < b.first;
+      });
 
       // Добавляем отсортированные элементы
       for (const auto &elem : row_elements) {
@@ -179,14 +182,14 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
         values.push_back(elem.second);
       }
 
-      row_ptr.push_back(values.size());
+      row_ptr.push_back(static_cast<int>(values.size()));
     }
   }
 
   // Конвертация из CRS в плотный формат с проверкой ошибок
-  bool ConvertCRSToDense(const std::vector<double> &values, const std::vector<int> &col_indices,
-                         const std::vector<int> &row_ptr, int n_rows, int n_cols,
-                         std::vector<std::vector<double>> &dense) {
+  static bool ConvertCRSToDense(const std::vector<double> &values, const std::vector<int> &col_indices,
+                                const std::vector<int> &row_ptr, int n_rows, int n_cols,
+                                std::vector<std::vector<double>> &dense) {
     // Проверяем корректность входных данных
     if (row_ptr.empty()) {
       dense.assign(n_rows, std::vector<double>(n_cols, 0.0));
@@ -205,8 +208,8 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
 
     // Проверяем корректность индексов
     for (size_t i = 0; i < row_ptr.size() - 1; i++) {
-      if (row_ptr[i] < 0 || row_ptr[i] > static_cast<int>(values.size()) || row_ptr[i + 1] < 0 ||
-          row_ptr[i + 1] > static_cast<int>(values.size()) || row_ptr[i] > row_ptr[i + 1]) {
+      if (row_ptr[i] < 0 || std::cmp_greater(row_ptr[i], values.size()) || row_ptr[i + 1] < 0 ||
+          std::cmp_greater(row_ptr[i + 1], values.size()) || row_ptr[i] > row_ptr[i + 1]) {
         dense.assign(n_rows, std::vector<double>(n_cols, 0.0));
         return false;
       }
@@ -219,16 +222,16 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
       int end = row_ptr[i + 1];
 
       // Проверяем границы
-      if (start < 0 || end > static_cast<int>(values.size()) || start > end) {
+      if (start < 0 || std::cmp_greater(end, values.size()) || start > end) {
         continue;
       }
 
       for (int idx = start; idx < end; idx++) {
-        if (idx < 0 || idx >= static_cast<int>(col_indices.size())) {
+        if (idx < 0 || std::cmp_greater_equal(idx, col_indices.size())) {
           continue;
         }
         int j = col_indices[idx];
-        if (j >= 0 && j < n_cols && idx < static_cast<int>(values.size())) {
+        if (j >= 0 && j < n_cols && std::cmp_less(idx, values.size())) {
           double val = values[idx];
           dense[i][j] = val;
         }

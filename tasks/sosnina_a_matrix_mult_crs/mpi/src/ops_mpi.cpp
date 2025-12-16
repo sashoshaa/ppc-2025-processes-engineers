@@ -5,27 +5,28 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <compare>
 #include <cstddef>
+#include <ranges>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "sosnina_a_matrix_mult_crs/common/include/common.hpp"
 
 namespace sosnina_a_matrix_mult_crs {
 
-SosninaAMatrixMultCRSMPI::SosninaAMatrixMultCRSMPI(const InType &in) {
+SosninaAMatrixMultCRSMPI::SosninaAMatrixMultCRSMPI(const InType &in)
+    : values_A_(std::get<0>(in)),
+      col_indices_A_(std::get<1>(in)),
+      row_ptr_A_(std::get<2>(in)),
+      values_B_(std::get<3>(in)),
+      col_indices_B_(std::get<4>(in)),
+      row_ptr_B_(std::get<5>(in)),
+      n_rows_A_(std::get<6>(in)),
+      n_cols_A_(std::get<7>(in)),
+      n_cols_B_(std::get<8>(in)) {
   SetTypeOfTask(GetStaticTypeOfTask());
-
-  // Распаковываем входные данные
-  values_A_ = std::get<0>(in);
-  col_indices_A_ = std::get<1>(in);
-  row_ptr_A_ = std::get<2>(in);
-  values_B_ = std::get<3>(in);
-  col_indices_B_ = std::get<4>(in);
-  row_ptr_B_ = std::get<5>(in);
-  n_rows_A_ = std::get<6>(in);
-  n_cols_A_ = std::get<7>(in);
-  n_cols_B_ = std::get<8>(in);
 }
 
 bool SosninaAMatrixMultCRSMPI::ValidationImpl() {
@@ -72,9 +73,11 @@ bool SosninaAMatrixMultCRSMPI::RunImpl() {
     return RunSequential();
   }
 
-  int n_rows_A = 0, n_cols_A = 0, n_cols_B = 0;
+  int n_rows_a = 0;
+  int n_cols_a = 0;
+  int n_cols_b = 0;
 
-  if (!PrepareAndValidateSizes(n_rows_A, n_cols_A, n_cols_B)) {
+  if (!PrepareAndValidateSizes(n_rows_a, n_cols_a, n_cols_b)) {
     return true;
   }
 
@@ -105,21 +108,21 @@ bool SosninaAMatrixMultCRSMPI::RunSequential() {
   // Умножение матриц
   for (int i = 0; i < n_rows_A_; i++) {
     // Для каждой строки i матрицы A
-    int row_start_A = row_ptr_A_[i];
-    int row_end_A = row_ptr_A_[i + 1];
+    int row_start_a = row_ptr_A_[i];
+    int row_end_a = row_ptr_A_[i + 1];
 
     // Создаем временный массив для текущей строки результата
     std::vector<double> temp_row(n_cols_B_, 0.0);
 
-    for (int k_idx = row_start_A; k_idx < row_end_A; k_idx++) {
+    for (int k_idx = row_start_a; k_idx < row_end_a; k_idx++) {
       double a_val = values_A_[k_idx];
       int k = col_indices_A_[k_idx];  // столбец в A = строка в B
 
       // Умножаем на соответствующую строку B
-      int row_start_B = row_ptr_B_[k];
-      int row_end_B = row_ptr_B_[k + 1];
+      int row_start_b = row_ptr_B_[k];
+      int row_end_b = row_ptr_B_[k + 1];
 
-      for (int j_idx = row_start_B; j_idx < row_end_B; j_idx++) {
+      for (int j_idx = row_start_b; j_idx < row_end_b; j_idx++) {
         double b_val = values_B_[j_idx];
         int j = col_indices_B_[j_idx];
 
@@ -139,11 +142,12 @@ bool SosninaAMatrixMultCRSMPI::RunSequential() {
     if (!row_cols[i].empty()) {
       // Создаем пары (столбец, значение) для сортировки
       std::vector<std::pair<int, double>> pairs;
+      pairs.reserve(row_cols[i].size());
       for (size_t idx = 0; idx < row_cols[i].size(); idx++) {
         pairs.emplace_back(row_cols[i][idx], row_values[i][idx]);
       }
 
-      std::sort(pairs.begin(), pairs.end());
+      std::ranges::sort(pairs);
 
       // Обновляем отсортированные данные
       for (size_t idx = 0; idx < pairs.size(); idx++) {
@@ -153,7 +157,7 @@ bool SosninaAMatrixMultCRSMPI::RunSequential() {
     }
 
     // Обновляем row_ptr
-    row_ptr_C_[i + 1] = row_ptr_C_[i] + row_cols[i].size();
+    row_ptr_C_[i + 1] = row_ptr_C_[i] + static_cast<int>(row_cols[i].size());
   }
 
   // Собираем все значения и индексы
@@ -169,35 +173,31 @@ bool SosninaAMatrixMultCRSMPI::RunSequential() {
   return true;
 }
 
-bool SosninaAMatrixMultCRSMPI::PrepareAndValidateSizes(int &n_rows_A, int &n_cols_A, int &n_cols_B) {
+bool SosninaAMatrixMultCRSMPI::PrepareAndValidateSizes(int &n_rows_a, int &n_cols_a, int &n_cols_b) {
   if (rank_ == 0) {
-    n_rows_A = n_rows_A_;
-    n_cols_A = n_cols_A_;
-    n_cols_B = n_cols_B_;
+    n_rows_a = n_rows_A_;
+    n_cols_a = n_cols_A_;
+    n_cols_b = n_cols_B_;
   }
 
-  std::array<int, 3> sizes = {n_rows_A, n_cols_A, n_cols_B};
+  std::array<int, 3> sizes = {n_rows_a, n_cols_a, n_cols_b};
   MPI_Bcast(sizes.data(), 3, MPI_INT, 0, MPI_COMM_WORLD);
 
-  n_rows_A = sizes[0];
-  n_cols_A = sizes[1];
-  n_cols_B = sizes[2];
+  n_rows_a = sizes[0];
+  n_cols_a = sizes[1];
+  n_cols_b = sizes[2];
 
   // Устанавливаем размеры на всех процессах
-  n_rows_A_ = n_rows_A;
-  n_cols_A_ = n_cols_A;
-  n_cols_B_ = n_cols_B;
+  n_rows_A_ = n_rows_a;
+  n_cols_A_ = n_cols_a;
+  n_cols_B_ = n_cols_b;
 
-  if (n_rows_A <= 0 || n_cols_A <= 0 || n_cols_B <= 0) {
-    return false;
-  }
-
-  return true;
+  return !(n_rows_a <= 0 || n_cols_a <= 0 || n_cols_b <= 0);
 }
 
 void SosninaAMatrixMultCRSMPI::BroadcastMatrixB() {
   // Определяем размеры данных для матрицы B
-  int b_sizes[3] = {0, 0, 0};
+  std::array<int, 3> b_sizes = {0, 0, 0};
 
   if (rank_ == 0) {
     b_sizes[0] = static_cast<int>(values_B_.size());
@@ -205,7 +205,7 @@ void SosninaAMatrixMultCRSMPI::BroadcastMatrixB() {
     b_sizes[2] = static_cast<int>(row_ptr_B_.size());
   }
 
-  MPI_Bcast(b_sizes, 3, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(b_sizes.data(), 3, MPI_INT, 0, MPI_COMM_WORLD);
 
   int values_size = b_sizes[0];
   int indices_size = b_sizes[1];
@@ -354,8 +354,8 @@ void SosninaAMatrixMultCRSMPI::ComputeLocalMultiplication() {
     // Обрабатываем ненулевые элементы текущей строки матрицы A
     for (int k_idx = row_start; k_idx < row_end; ++k_idx) {
       // Проверка границ
-      if (k_idx < 0 || k_idx >= static_cast<int>(local_values_A_.size()) ||
-          k_idx >= static_cast<int>(local_col_indices_A_.size())) {
+      if (k_idx < 0 || std::cmp_greater_equal(k_idx, local_values_A_.size()) ||
+          std::cmp_greater_equal(k_idx, local_col_indices_A_.size())) {
         continue;
       }
 
@@ -372,14 +372,14 @@ void SosninaAMatrixMultCRSMPI::ComputeLocalMultiplication() {
       int b_row_end = row_ptr_B_[k + 1];
 
       // Проверка границ для row_ptr_B
-      if (b_row_start < 0 || b_row_end > static_cast<int>(values_B_.size()) || b_row_start > b_row_end) {
+      if (b_row_start < 0 || std::cmp_greater(b_row_end, values_B_.size()) || b_row_start > b_row_end) {
         continue;
       }
 
       for (int j_idx = b_row_start; j_idx < b_row_end; ++j_idx) {
         // Проверка границ для индексов B
-        if (j_idx < 0 || j_idx >= static_cast<int>(values_B_.size()) ||
-            j_idx >= static_cast<int>(col_indices_B_.size())) {
+        if (j_idx < 0 || std::cmp_greater_equal(j_idx, values_B_.size()) ||
+            std::cmp_greater_equal(j_idx, col_indices_B_.size())) {
           continue;
         }
 
@@ -404,11 +404,12 @@ void SosninaAMatrixMultCRSMPI::ComputeLocalMultiplication() {
     // Сортируем по столбцам
     if (!local_row_cols[local_idx].empty()) {
       std::vector<std::pair<int, double>> pairs;
+      pairs.reserve(local_row_cols[local_idx].size());
       for (size_t idx = 0; idx < local_row_cols[local_idx].size(); ++idx) {
         pairs.emplace_back(local_row_cols[local_idx][idx], local_row_values[local_idx][idx]);
       }
 
-      std::sort(pairs.begin(), pairs.end());
+      std::ranges::sort(pairs);
 
       // Обновляем отсортированные данные
       for (size_t idx = 0; idx < pairs.size(); ++idx) {
@@ -418,7 +419,7 @@ void SosninaAMatrixMultCRSMPI::ComputeLocalMultiplication() {
     }
 
     // Обновляем указатели на строки
-    local_row_ptr_C_[local_idx + 1] = local_row_ptr_C_[local_idx] + local_row_cols[local_idx].size();
+    local_row_ptr_C_[local_idx + 1] = local_row_ptr_C_[local_idx] + static_cast<int>(local_row_cols[local_idx].size());
   }
 
   // Собираем все локальные значения и индексы
@@ -508,10 +509,11 @@ void SosninaAMatrixMultCRSMPI::GatherResults() {
       // Сортируем элементы строки по столбцам (если есть элементы)
       if (!row_cols[i].empty()) {
         std::vector<std::pair<int, double>> pairs;
+        pairs.reserve(row_cols[i].size());
         for (size_t idx = 0; idx < row_cols[i].size(); ++idx) {
           pairs.emplace_back(row_cols[i][idx], row_values[i][idx]);
         }
-        std::sort(pairs.begin(), pairs.end());
+        std::ranges::sort(pairs);
 
         // Обновляем отсортированные данные
         for (size_t idx = 0; idx < pairs.size(); ++idx) {
@@ -570,33 +572,6 @@ void SosninaAMatrixMultCRSMPI::GatherResults() {
 
 bool SosninaAMatrixMultCRSMPI::PostProcessingImpl() {
   return true;
-}
-
-void SosninaAMatrixMultCRSMPI::ConvertToDenseRow(const std::vector<double> &values, const std::vector<int> &col_indices,
-                                                 const std::vector<int> &row_ptr, int row_index, int n_cols,
-                                                 std::vector<double> &dense_row) {
-  dense_row.assign(n_cols, 0.0);
-  int start = row_ptr[row_index];
-  int end = row_ptr[row_index + 1];
-
-  for (int i = start; i < end; ++i) {
-    int col = col_indices[i];
-    double val = values[i];
-    dense_row[col] = val;
-  }
-}
-
-void SosninaAMatrixMultCRSMPI::ConvertDenseToCRS(const std::vector<double> &dense_row, std::vector<double> &values,
-                                                 std::vector<int> &col_indices, int &row_start, int /* row_end */,
-                                                 double epsilon) {
-  row_start = static_cast<int>(values.size());
-
-  for (size_t j = 0; j < dense_row.size(); ++j) {
-    if (std::abs(dense_row[j]) > epsilon) {
-      values.push_back(dense_row[j]);
-      col_indices.push_back(static_cast<int>(j));
-    }
-  }
 }
 
 }  // namespace sosnina_a_matrix_mult_crs

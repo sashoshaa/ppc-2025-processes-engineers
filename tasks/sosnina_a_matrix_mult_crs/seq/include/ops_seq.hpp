@@ -1,6 +1,5 @@
 #pragma once
 
-#include <tuple>
 #include <vector>
 
 #include "sosnina_a_matrix_mult_crs/common/include/common.hpp"
@@ -22,7 +21,6 @@ class SosninaAMatrixMultCRSSEQ : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
- private:
   InType input_;
 
   // Данные матрицы A
