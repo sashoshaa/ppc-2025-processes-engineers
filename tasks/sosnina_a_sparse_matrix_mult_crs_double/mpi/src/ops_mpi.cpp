@@ -166,7 +166,8 @@ void SosninaAMatrixMultCRSMPI::ProcessRowForSequential(int row_idx, std::vector<
       pairs.emplace_back(row_cols[idx], row_values[idx]);
     }
 
-    std::ranges::sort(pairs);
+    using namespace std::ranges;
+    sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); idx++) {
@@ -460,7 +461,8 @@ void SosninaAMatrixMultCRSMPI::SortRowElements(std::vector<double> &row_values, 
       pairs.emplace_back(row_cols[idx], row_values[idx]);
     }
 
-    std::ranges::sort(pairs);
+    using namespace std::ranges;
+    sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); ++idx) {
@@ -608,7 +610,8 @@ void SosninaAMatrixMultCRSMPI::SortAndPackRow(int row_idx, std::vector<std::vect
     for (size_t idx = 0; idx < row_cols[row_idx].size(); ++idx) {
       pairs.emplace_back(row_cols[row_idx][idx], row_values[row_idx][idx]);
     }
-    std::ranges::sort(pairs);
+    using namespace std::ranges;
+    sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); ++idx) {
