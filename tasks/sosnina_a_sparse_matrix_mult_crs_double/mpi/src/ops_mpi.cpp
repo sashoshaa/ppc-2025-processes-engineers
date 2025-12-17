@@ -533,7 +533,7 @@ void SosninaAMatrixMultCRSMPI::ProcessLocalResults(std::vector<std::vector<doubl
 }
 
 void SosninaAMatrixMultCRSMPI::ReceiveResultsFromProcess(int src, std::vector<std::vector<double>> &row_values,
-                                                          std::vector<std::vector<int>> &row_cols) {
+                                                         std::vector<std::vector<int>> &row_cols) {
   // Получаем количество строк от процесса src (даже если 0)
   int received_row_count = 0;
   MPI_Recv(&received_row_count, 1, MPI_INT, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
