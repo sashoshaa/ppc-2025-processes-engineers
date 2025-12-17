@@ -34,9 +34,11 @@ class SosninaAMatrixMultCRSMPI : public BaseTask {
   void ProcessRowForSequential(int row_idx, std::vector<double> &row_values, std::vector<int> &row_cols);
   void ProcessLocalRow(int local_idx, std::vector<double> &row_values, std::vector<int> &row_cols);
   void MultiplyRowByMatrixB(int row_start, int row_end, std::vector<double> &temp_row);
-  void CollectNonZeroElements(const std::vector<double> &temp_row, std::vector<double> &row_values,
-                              std::vector<int> &row_cols);
-  void SortRowElements(std::vector<double> &row_values, std::vector<int> &row_cols);
+  void ProcessElementA(int k_idx, std::vector<double> &temp_row);
+  void MultiplyByRowB(int k, double a_val, std::vector<double> &temp_row);
+  void CollectNonZeroElements(const std::vector<double> &temp_row, int n_cols_b, std::vector<double> &row_values,
+                              std::vector<int> &row_cols) const;
+  static void SortRowElements(std::vector<double> &row_values, std::vector<int> &row_cols);
 
   void GatherResults();
   void ProcessLocalResults(std::vector<std::vector<double>> &row_values, std::vector<std::vector<int>> &row_cols);
