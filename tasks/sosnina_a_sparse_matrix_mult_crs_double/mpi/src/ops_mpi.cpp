@@ -441,8 +441,7 @@ void SosninaAMatrixMultCRSMPI::MultiplyByRowB(int k, double a_val, std::vector<d
 }
 
 void SosninaAMatrixMultCRSMPI::CollectNonZeroElements(const std::vector<double> &temp_row, int n_cols_b,
-                                                       std::vector<double> &row_values,
-                                                       std::vector<int> &row_cols) {
+                                                      std::vector<double> &row_values, std::vector<int> &row_cols) {
   // Собираем ненулевые элементы текущей строки
   for (int j = 0; j < n_cols_b; ++j) {
     if (std::abs(temp_row[j]) > 1e-12) {  // Проверка на ненулевое значение
