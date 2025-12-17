@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <ranges>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -165,7 +166,7 @@ void SosninaAMatrixMultCRSMPI::ProcessRowForSequential(int row_idx, std::vector<
       pairs.emplace_back(row_cols[idx], row_values[idx]);
     }
 
-    std::sort(pairs.begin(), pairs.end());
+    std::ranges::sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); idx++) {
@@ -378,6 +379,17 @@ void SosninaAMatrixMultCRSMPI::ProcessLocalRow(int local_idx, std::vector<double
   // Создаем временный массив для текущей строки результата
   std::vector<double> temp_row(n_cols_B_, 0.0);
 
+  // Умножаем строку на матрицу B
+  MultiplyRowByMatrixB(row_start, row_end, temp_row);
+
+  // Собираем ненулевые элементы
+  CollectNonZeroElements(temp_row, row_values, row_cols);
+
+  // Сортируем по столбцам
+  SortRowElements(row_values, row_cols);
+}
+
+void SosninaAMatrixMultCRSMPI::MultiplyRowByMatrixB(int row_start, int row_end, std::vector<double> &temp_row) {
   // Обрабатываем ненулевые элементы текущей строки матрицы A
   for (int k_idx = row_start; k_idx < row_end; ++k_idx) {
     // Проверка границ
@@ -419,7 +431,10 @@ void SosninaAMatrixMultCRSMPI::ProcessLocalRow(int local_idx, std::vector<double
       }
     }
   }
+}
 
+void SosninaAMatrixMultCRSMPI::CollectNonZeroElements(const std::vector<double> &temp_row,
+                                                      std::vector<double> &row_values, std::vector<int> &row_cols) {
   // Собираем ненулевые элементы текущей строки
   for (int j = 0; j < n_cols_B_; ++j) {
     if (std::abs(temp_row[j]) > 1e-12) {  // Проверка на ненулевое значение
@@ -427,7 +442,9 @@ void SosninaAMatrixMultCRSMPI::ProcessLocalRow(int local_idx, std::vector<double
       row_cols.push_back(j);
     }
   }
+}
 
+void SosninaAMatrixMultCRSMPI::SortRowElements(std::vector<double> &row_values, std::vector<int> &row_cols) {
   // Сортируем по столбцам
   if (!row_cols.empty()) {
     std::vector<std::pair<int, double>> pairs;
@@ -436,7 +453,7 @@ void SosninaAMatrixMultCRSMPI::ProcessLocalRow(int local_idx, std::vector<double
       pairs.emplace_back(row_cols[idx], row_values[idx]);
     }
 
-    std::sort(pairs.begin(), pairs.end());
+    std::ranges::sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); ++idx) {
@@ -456,7 +473,7 @@ void SosninaAMatrixMultCRSMPI::GatherResults() {
 
     // Принимаем результаты от других процессов
     for (int src = 1; src < world_size_; ++src) {
-      ReceiveResultsFromProcess(src, row_values, row_cols);
+      ReceiveResultsFromProcess(src, n_rows_A_, row_values, row_cols);
     }
 
     CollectAllResults(row_values, row_cols);
@@ -515,7 +532,8 @@ void SosninaAMatrixMultCRSMPI::ProcessLocalResults(std::vector<std::vector<doubl
   }
 }
 
-void SosninaAMatrixMultCRSMPI::ReceiveResultsFromProcess(int src, std::vector<std::vector<double>> &row_values,
+void SosninaAMatrixMultCRSMPI::ReceiveResultsFromProcess(int src, int n_rows_a,
+                                                         std::vector<std::vector<double>> &row_values,
                                                          std::vector<std::vector<int>> &row_cols) {
   // Получаем количество строк от процесса src (даже если 0)
   int received_row_count = 0;
@@ -584,7 +602,7 @@ void SosninaAMatrixMultCRSMPI::SortAndPackRow(int row_idx, std::vector<std::vect
     for (size_t idx = 0; idx < row_cols[row_idx].size(); ++idx) {
       pairs.emplace_back(row_cols[row_idx][idx], row_values[row_idx][idx]);
     }
-    std::sort(pairs.begin(), pairs.end());
+    std::ranges::sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); ++idx) {
