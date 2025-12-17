@@ -36,8 +36,8 @@ class SosninaAMatrixMultCRSMPI : public BaseTask {
   void MultiplyRowByMatrixB(int row_start, int row_end, std::vector<double> &temp_row);
   void ProcessElementA(int k_idx, std::vector<double> &temp_row);
   void MultiplyByRowB(int k, double a_val, std::vector<double> &temp_row);
-  void CollectNonZeroElements(const std::vector<double> &temp_row, int n_cols_b, std::vector<double> &row_values,
-                              std::vector<int> &row_cols) const;
+  static void CollectNonZeroElements(const std::vector<double> &temp_row, int n_cols_b, std::vector<double> &row_values,
+                                     std::vector<int> &row_cols);
   static void SortRowElements(std::vector<double> &row_values, std::vector<int> &row_cols);
 
   void GatherResults();
