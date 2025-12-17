@@ -50,7 +50,6 @@ bool SosninaAMatrixMultCRSSEQ::ValidationImpl() {
 }
 
 bool SosninaAMatrixMultCRSSEQ::ValidateMatrixA() const {
-  using std::ranges::all_of;
   // Проверка row_ptr_A
   if (row_ptr_A_.size() != static_cast<size_t>(n_rows_A_) + 1U) {
     return false;
@@ -72,11 +71,11 @@ bool SosninaAMatrixMultCRSSEQ::ValidateMatrixA() const {
   }
 
   // Проверка col_indices_A
-  return all_of(col_indices_A_, [n_cols_a = n_cols_A_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_a; });
+  return std::ranges::all_of(col_indices_A_,
+                             [n_cols_a = n_cols_A_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_a; });
 }
 
 bool SosninaAMatrixMultCRSSEQ::ValidateMatrixB() const {
-  using std::ranges::all_of;
   int n_rows_b = n_cols_A_;  // Для умножения A*B, число строк B = числу столбцов A
 
   // Проверка row_ptr_B
@@ -100,7 +99,8 @@ bool SosninaAMatrixMultCRSSEQ::ValidateMatrixB() const {
   }
 
   // Проверка col_indices_B
-  return all_of(col_indices_B_, [n_cols_b = n_cols_B_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_b; });
+  return std::ranges::all_of(col_indices_B_,
+                             [n_cols_b = n_cols_B_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_b; });
 }
 
 bool SosninaAMatrixMultCRSSEQ::PreProcessingImpl() {
@@ -140,7 +140,6 @@ bool SosninaAMatrixMultCRSSEQ::RunImpl() {
 }
 
 void SosninaAMatrixMultCRSSEQ::ProcessRow(int row_idx, std::vector<double> &row_values, std::vector<int> &row_cols) {
-  using std::ranges::sort;
   // Для каждой строки i матрицы A
   int row_start_a = row_ptr_A_[row_idx];
   int row_end_a = row_ptr_A_[row_idx + 1];
@@ -181,7 +180,7 @@ void SosninaAMatrixMultCRSSEQ::ProcessRow(int row_idx, std::vector<double> &row_
       pairs.emplace_back(row_cols[idx], row_values[idx]);
     }
 
-    sort(pairs);
+    std::ranges::sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); idx++) {

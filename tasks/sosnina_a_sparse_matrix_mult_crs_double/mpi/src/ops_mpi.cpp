@@ -126,7 +126,6 @@ bool SosninaAMatrixMultCRSMPI::RunSequential() {
 
 void SosninaAMatrixMultCRSMPI::ProcessRowForSequential(int row_idx, std::vector<double> &row_values,
                                                        std::vector<int> &row_cols) {
-  using std::ranges::sort;
   // Для каждой строки i матрицы A
   int row_start_a = row_ptr_A_[row_idx];
   int row_end_a = row_ptr_A_[row_idx + 1];
@@ -167,7 +166,7 @@ void SosninaAMatrixMultCRSMPI::ProcessRowForSequential(int row_idx, std::vector<
       pairs.emplace_back(row_cols[idx], row_values[idx]);
     }
 
-    sort(pairs);
+    std::ranges::sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); idx++) {
@@ -453,7 +452,6 @@ void SosninaAMatrixMultCRSMPI::CollectNonZeroElements(const std::vector<double> 
 }
 
 void SosninaAMatrixMultCRSMPI::SortRowElements(std::vector<double> &row_values, std::vector<int> &row_cols) {
-  using std::ranges::sort;
   // Сортируем по столбцам
   if (!row_cols.empty()) {
     std::vector<std::pair<int, double>> pairs;
@@ -462,7 +460,7 @@ void SosninaAMatrixMultCRSMPI::SortRowElements(std::vector<double> &row_values, 
       pairs.emplace_back(row_cols[idx], row_values[idx]);
     }
 
-    sort(pairs);
+    std::ranges::sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); ++idx) {
@@ -603,7 +601,6 @@ void SosninaAMatrixMultCRSMPI::CollectAllResults(std::vector<std::vector<double>
 
 void SosninaAMatrixMultCRSMPI::SortAndPackRow(int row_idx, std::vector<std::vector<double>> &row_values,
                                               std::vector<std::vector<int>> &row_cols) {
-  using std::ranges::sort;
   // Сортируем элементы строки по столбцам (если есть элементы)
   if (!row_cols[row_idx].empty()) {
     std::vector<std::pair<int, double>> pairs;
@@ -611,7 +608,7 @@ void SosninaAMatrixMultCRSMPI::SortAndPackRow(int row_idx, std::vector<std::vect
     for (size_t idx = 0; idx < row_cols[row_idx].size(); ++idx) {
       pairs.emplace_back(row_cols[row_idx][idx], row_values[row_idx][idx]);
     }
-    sort(pairs);
+    std::ranges::sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); ++idx) {
