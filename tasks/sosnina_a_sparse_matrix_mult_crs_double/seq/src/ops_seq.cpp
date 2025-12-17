@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <ranges>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -70,8 +71,8 @@ bool SosninaAMatrixMultCRSSEQ::ValidateMatrixA() const {
   }
 
   // Проверка col_indices_A
-  if (!std::all_of(col_indices_A_.begin(), col_indices_A_.end(),
-                   [n_cols_A = n_cols_A_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_A; })) {
+  if (!std::ranges::all_of(col_indices_A_,
+                           [n_cols_a = n_cols_A_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_a; })) {
     return false;
   }
 
@@ -102,8 +103,8 @@ bool SosninaAMatrixMultCRSSEQ::ValidateMatrixB() const {
   }
 
   // Проверка col_indices_B
-  if (!std::all_of(col_indices_B_.begin(), col_indices_B_.end(),
-                   [n_cols_B = n_cols_B_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_B; })) {
+  if (!std::ranges::all_of(col_indices_B_,
+                           [n_cols_b = n_cols_B_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_b; })) {
     return false;
   }
 
@@ -187,7 +188,7 @@ void SosninaAMatrixMultCRSSEQ::ProcessRow(int row_idx, std::vector<double> &row_
       pairs.emplace_back(row_cols[idx], row_values[idx]);
     }
 
-    std::sort(pairs.begin(), pairs.end());
+    std::ranges::sort(pairs);
 
     // Обновляем отсортированные данные
     for (size_t idx = 0; idx < pairs.size(); idx++) {

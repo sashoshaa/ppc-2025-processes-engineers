@@ -21,8 +21,8 @@ class SosninaAMatrixMultCRSSEQ : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  bool ValidateMatrixA() const;
-  bool ValidateMatrixB() const;
+  [[nodiscard]] bool ValidateMatrixA() const;
+  [[nodiscard]] bool ValidateMatrixB() const;
   void ProcessRow(int row_idx, std::vector<double> &row_values, std::vector<int> &row_cols);
 
   InType input_;
