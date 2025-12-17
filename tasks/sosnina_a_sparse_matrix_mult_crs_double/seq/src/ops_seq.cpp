@@ -72,8 +72,7 @@ bool SosninaAMatrixMultCRSSEQ::ValidateMatrixA() const {
 
   // Проверка col_indices_A
   using std::ranges::all_of;
-  return all_of(col_indices_A_,
-                [n_cols_a = n_cols_A_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_a; });
+  return all_of(col_indices_A_, [n_cols_a = n_cols_A_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_a; });
 }
 
 bool SosninaAMatrixMultCRSSEQ::ValidateMatrixB() const {
@@ -101,8 +100,7 @@ bool SosninaAMatrixMultCRSSEQ::ValidateMatrixB() const {
 
   // Проверка col_indices_B
   using std::ranges::all_of;
-  return all_of(col_indices_B_,
-                [n_cols_b = n_cols_B_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_b; });
+  return all_of(col_indices_B_, [n_cols_b = n_cols_B_](int col_idx) { return col_idx >= 0 && col_idx < n_cols_b; });
 }
 
 bool SosninaAMatrixMultCRSSEQ::PreProcessingImpl() {
