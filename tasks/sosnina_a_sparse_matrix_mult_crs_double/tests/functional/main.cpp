@@ -5,7 +5,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <ranges>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -171,9 +170,8 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
       }
 
       // Сортируем по индексам столбцов (требование CRS формата)
-      std::ranges::sort(row_elements, [](const std::pair<int, double> &a, const std::pair<int, double> &b) {
-        return a.first < b.first;
-      });
+      std::sort(row_elements.begin(), row_elements.end(),
+                [](const std::pair<int, double> &a, const std::pair<int, double> &b) { return a.first < b.first; });
 
       // Добавляем отсортированные элементы
       for (const auto &elem : row_elements) {
