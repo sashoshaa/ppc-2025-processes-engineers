@@ -40,7 +40,7 @@ class SosninaAMatrixMultCRSMPI : public BaseTask {
 
   void GatherResults();
   void ProcessLocalResults(std::vector<std::vector<double>> &row_values, std::vector<std::vector<int>> &row_cols);
-  static void ReceiveResultsFromProcess(int src, int n_rows_a, std::vector<std::vector<double>> &row_values,
+  static void ReceiveResultsFromProcess(int src, std::vector<std::vector<double>> &row_values,
                                         std::vector<std::vector<int>> &row_cols);
   void CollectAllResults(std::vector<std::vector<double>> &row_values, std::vector<std::vector<int>> &row_cols);
   static void SortAndPackRow(int row_idx, std::vector<std::vector<double>> &row_values,
