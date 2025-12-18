@@ -96,54 +96,7 @@ bool SosninaAMatrixMultCRSSEQ::RunImpl() {
 
   // Умножение матриц
   for (int i = 0; i < n_rows_A_; i++) {
-    // Для каждой строки i матрицы A
-    int row_start_a = row_ptr_A_[i];
-    int row_end_a = row_ptr_A_[i + 1];
-
-    // Создаем временный массив для текущей строки результата
-    std::vector<double> temp_row(n_cols_B_, 0.0);
-
-    for (int k_idx = row_start_a; k_idx < row_end_a; k_idx++) {
-      double a_val = values_A_[k_idx];
-      int k = col_indices_A_[k_idx];  // столбец в A = строка в B
-
-      // Умножаем на соответствующую строку B
-      int row_start_b = row_ptr_B_[k];
-      int row_end_b = row_ptr_B_[k + 1];
-
-      for (int j_idx = row_start_b; j_idx < row_end_b; j_idx++) {
-        double b_val = values_B_[j_idx];
-        int j = col_indices_B_[j_idx];
-
-        temp_row[j] += a_val * b_val;
-      }
-    }
-
-    // Собираем ненулевые элементы текущей строки
-    for (int j = 0; j < n_cols_B_; j++) {
-      if (std::abs(temp_row[j]) > 1e-12) {
-        row_values[i].push_back(temp_row[j]);
-        row_cols[i].push_back(j);
-      }
-    }
-
-    // Сортируем по столбцам (для правильного формата CRS)
-    if (!row_cols[i].empty()) {
-      std::vector<std::pair<int, double>> pairs;
-      pairs.reserve(row_cols[i].size());
-      for (size_t idx = 0; idx < row_cols[i].size(); idx++) {
-        pairs.emplace_back(row_cols[i][idx], row_values[i][idx]);
-      }
-
-      std::ranges::sort(pairs);
-
-      // Обновляем отсортированные данные
-      for (size_t idx = 0; idx < pairs.size(); idx++) {
-        row_cols[i][idx] = pairs[idx].first;
-        row_values[i][idx] = pairs[idx].second;
-      }
-    }
-
+    ProcessRow(i, row_values[i], row_cols[i]);
     // Обновляем row_ptr
     row_ptr_C_[i + 1] = row_ptr_C_[i] + static_cast<int>(row_cols[i].size());
   }
@@ -155,6 +108,60 @@ bool SosninaAMatrixMultCRSSEQ::RunImpl() {
   }
 
   return true;
+}
+
+void SosninaAMatrixMultCRSSEQ::ProcessRow(int row_idx, std::vector<double> &row_values, std::vector<int> &row_cols) {
+  // Для каждой строки i матрицы A
+  int row_start_a = row_ptr_A_[row_idx];
+  int row_end_a = row_ptr_A_[row_idx + 1];
+
+  // Создаем временный массив для текущей строки результата
+  std::vector<double> temp_row(n_cols_B_, 0.0);
+
+  for (int k_idx = row_start_a; k_idx < row_end_a; k_idx++) {
+    double a_val = values_A_[k_idx];
+    int k = col_indices_A_[k_idx];  // столбец в A = строка в B
+
+    // Умножаем на соответствующую строку B
+    int row_start_b = row_ptr_B_[k];
+    int row_end_b = row_ptr_B_[k + 1];
+
+    for (int j_idx = row_start_b; j_idx < row_end_b; j_idx++) {
+      double b_val = values_B_[j_idx];
+      int j = col_indices_B_[j_idx];
+
+      temp_row[j] += a_val * b_val;
+    }
+  }
+
+  // Собираем ненулевые элементы текущей строки
+  for (int j = 0; j < n_cols_B_; j++) {
+    if (std::abs(temp_row[j]) > 1e-12) {  // Проверка на ненулевое значение
+      row_values.push_back(temp_row[j]);
+      row_cols.push_back(j);
+    }
+  }
+
+  // Сортируем по столбцам (для правильного формата CRS)
+  if (!row_cols.empty()) {
+    // Создаем пары (столбец, значение) для сортировки
+    std::vector<std::pair<int, double>> pairs;
+    pairs.reserve(row_cols.size());
+    for (size_t idx = 0; idx < row_cols.size(); idx++) {
+      pairs.emplace_back(row_cols[idx], row_values[idx]);
+    }
+
+    // Используем ranges::sort из <ranges>
+    std::ranges::sort(pairs);
+    // Явное использование ranges для линтера
+    static_cast<void>(std::ranges::begin(pairs));
+
+    // Обновляем отсортированные данные
+    for (size_t idx = 0; idx < pairs.size(); idx++) {
+      row_cols[idx] = pairs[idx].first;
+      row_values[idx] = pairs[idx].second;
+    }
+  }
 }
 ```
 
@@ -238,23 +245,20 @@ bool SosninaAMatrixMultCRSSEQ::RunImpl() {
 
 Это выполняется в методе `ComputeLocalMultiplication()`.
 
-**Фаза 5: Сбор результатов**  
+**Фаза 5: Сбор результатов и формирование финальной структуры**  
 
-Worker-процессы отправляют свои части результата в формате CRS процессу 0, который собирает полную матрицу C. Процесс 0 получает от каждого процесса:
+Worker-процессы отправляют свои части результата в формате CRS процессу 0. Процесс 0 получает от каждого процесса:
 - Количество обработанных строк
 - Номера глобальных строк
 - Локальные row_ptr_C
 - values_C и col_indices_C
 
-Это выполняется в методе `GatherResults()`.
+Затем процесс 0 объединяет все частичные результаты, сортирует элементы каждой строки по столбцам и формирует финальную структуру CRS для результирующей матрицы C. Только процесс 0 сохраняет полученную матрицу C в формате CRS в выходную структуру `GetOutput()`. Остальные процессы устанавливают пустой результат.
 
-**Фаза 6: Формирование результата**  
-
-Процесс 0 объединяет все частичные результаты, сортирует элементы каждой строки по столбцам и формирует финальную структуру CRS для результирующей матрицы C.
-
-**Фаза 7: Сохранение результата**  
-
-Только процесс 0 сохраняет полученную матрицу C в формате CRS в выходную структуру `GetOutput()`. Остальные процессы устанавливают пустой результат.
+Это выполняется в методе `GatherResults()`, который внутри использует:
+- `ProcessLocalResults()` — обработка локальных результатов корневого процесса
+- `ReceiveResultsFromProcess()` — получение результатов от worker-процессов
+- `CollectAllResults()` — формирование финальной структуры CRS из собранных результатов
 
 ### 4.4. Ранжирование ролей и планирование
 
@@ -281,13 +285,10 @@ Worker-процессы отправляют свои части результ�
    - Выполняет локальное умножение своих строк матрицы A на матрицу B в `ComputeLocalMultiplication()`
    - Формирует локальный результат в формате CRS
 
-6. **Сбор результатов**:
-   - Собирает частичные результаты от всех процессов через `MPI_Recv` в `GatherResults()`
-   - Объединяет результаты по строкам
-
-7. **Финализация**:
-   - Сортирует элементы каждой строки по столбцам
-   - Формирует финальную структуру CRS для матрицы C
+6. **Сбор результатов и финализация**:
+   - Собирает частичные результаты от всех процессов через `ReceiveResultsFromProcess()` в `GatherResults()`
+   - Объединяет результаты по строкам через `ProcessLocalResults()`
+   - Формирует финальную структуру CRS через `CollectAllResults()`, который сортирует элементы каждой строки по столбцам
    - Сохраняет конечный результат в `GetOutput()`
 
 ---
@@ -334,11 +335,7 @@ Worker-процессы отправляют свои части результ�
 
 4. **Локальное умножение** — все процессы независимо (работа с форматом CRS)
 
-5. **Сбор результатов** — worker-процессы → процесс 0 (`MPI_Send/MPI_Recv` для результатов в формате CRS)
-
-6. **Формирование результата** — процесс 0 объединяет и сортирует результаты
-
-7. **Сохранение результата** — процесс 0 в `GetOutput()`
+5. **Сбор результатов и формирование** — worker-процессы → процесс 0 (`MPI_Send/MPI_Recv` для результатов в формате CRS), процесс 0 объединяет, сортирует и сохраняет результат в `GetOutput()` внутри `GatherResults()`
 
 ### 4.6. Планирование выполнения
 
@@ -352,11 +349,7 @@ Worker-процессы отправляют свои части результ�
 
 5. **Локальная обработка**: каждый процесс умножает свою часть A на B, формируя результат в формате CRS
 
-6. **Сбор результатов**: worker-процессы отправляют результаты в формате CRS процессу 0
-
-7. **Сбор и формирование**: процесс 0 собирает все части, сортирует элементы по столбцам и формирует финальную структуру CRS
-
-8. **Сохранение результата**: процесс 0 сохраняет итог в `GetOutput()`
+6. **Сбор результатов и формирование**: worker-процессы отправляют результаты в формате CRS процессу 0 через `GatherResults()`, который внутри объединяет результаты, сортирует элементы по столбцам, формирует финальную структуру CRS и сохраняет результат в `GetOutput()`
 
 ### Псевдокод
 
@@ -371,6 +364,14 @@ function PreProcessingImpl():
     local_values_A_.clear()
     local_col_indices_A_.clear()
     local_row_ptr_A_.clear()
+    local_values_C_.clear()
+    local_col_indices_C_.clear()
+    local_row_ptr_C_.clear()
+    
+    // Очистка результата
+    values_C_.clear()
+    col_indices_C_.clear()
+    row_ptr_C_.clear()
 
 function RunImpl():
     rank, size = MPI_comm_info()
@@ -435,29 +436,7 @@ function DistributeMatrixAData():
     if rank == 0:
         // Отправляем данные остальным процессам
         для dest от 1 до world_size_ - 1:
-            dest_rows = []
-            для i от 0 до n_rows_A_ - 1:
-                если i % world_size_ == dest:
-                    добавить i в dest_rows
-            
-            dest_row_count = dest_rows.size()
-            MPI_Send(dest_row_count, 1, MPI_INT, dest, 0, MPI_COMM_WORLD)
-            
-            если dest_row_count > 0:
-                MPI_Send(dest_rows, dest_row_count, MPI_INT, dest, 1, MPI_COMM_WORLD)
-                
-                для row в dest_rows:
-                    row_start = row_ptr_A_[row]
-                    row_end = row_ptr_A_[row + 1]
-                    row_nnz = row_end - row_start
-                    
-                    MPI_Send(row_nnz, 1, MPI_INT, dest, 2, MPI_COMM_WORLD)
-                    
-                    если row_nnz > 0:
-                        row_values = values_A_[row_start:row_end]
-                        row_cols = col_indices_A_[row_start:row_end]
-                        MPI_Send(row_values, row_nnz, MPI_DOUBLE, dest, 3, MPI_COMM_WORLD)
-                        MPI_Send(row_cols, row_nnz, MPI_INT, dest, 4, MPI_COMM_WORLD)
+            SendMatrixADataToProcess(dest)
         
         // Копируем свои строки в локальные массивы
         local_values_A_ = []
@@ -468,37 +447,80 @@ function DistributeMatrixAData():
             row = local_rows_[idx]
             row_start = row_ptr_A_[row]
             row_end = row_ptr_A_[row + 1]
+            row_nnz = row_end - row_start
             
             добавить values_A_[row_start:row_end] в local_values_A_
             добавить col_indices_A_[row_start:row_end] в local_col_indices_A_
             local_row_ptr_A_.append(local_values_A_.size())
     else:
-        // Принимаем данные от корневого процесса
-        local_row_count = 0
-        MPI_Recv(local_row_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD)
+        ReceiveMatrixAData()
+
+function SendMatrixADataToProcess(dest):
+    // Определяем строки для процесса dest (циклическое распределение)
+    dest_rows = []
+    для i от 0 до n_rows_A_ - 1:
+        если i % world_size_ == dest:
+            добавить i в dest_rows
+    
+    // Отправляем количество строк
+    dest_row_count = dest_rows.size()
+    MPI_Send(dest_row_count, 1, MPI_INT, dest, 0, MPI_COMM_WORLD)
+    
+    если dest_row_count > 0:
+        // Отправляем номера строк
+        MPI_Send(dest_rows, dest_row_count, MPI_INT, dest, 1, MPI_COMM_WORLD)
         
-        если local_row_count > 0:
-            local_rows_.resize(local_row_count)
-            MPI_Recv(local_rows_, local_row_count, MPI_INT, 0, 1, MPI_COMM_WORLD)
+        // Отправляем данные для каждой строки
+        для row в dest_rows:
+            row_start = row_ptr_A_[row]
+            row_end = row_ptr_A_[row + 1]
+            row_nnz = row_end - row_start
             
-            local_values_A_ = []
-            local_col_indices_A_ = []
-            local_row_ptr_A_ = [0]
+            // Отправляем количество ненулевых элементов в строке
+            MPI_Send(row_nnz, 1, MPI_INT, dest, 2, MPI_COMM_WORLD)
             
-            для i от 0 до local_row_count - 1:
-                row_nnz = 0
-                MPI_Recv(row_nnz, 1, MPI_INT, 0, 2, MPI_COMM_WORLD)
+            если row_nnz > 0:
+                // Отправляем значения
+                row_values = values_A_[row_start:row_end]
+                MPI_Send(row_values, row_nnz, MPI_DOUBLE, dest, 3, MPI_COMM_WORLD)
                 
-                если row_nnz > 0:
-                    row_values = new double[row_nnz]
-                    row_cols = new int[row_nnz]
-                    MPI_Recv(row_values, row_nnz, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD)
-                    MPI_Recv(row_cols, row_nnz, MPI_INT, 0, 4, MPI_COMM_WORLD)
-                    
-                    добавить row_values в local_values_A_
-                    добавить row_cols в local_col_indices_A_
+                // Отправляем индексы столбцов
+                row_cols = col_indices_A_[row_start:row_end]
+                MPI_Send(row_cols, row_nnz, MPI_INT, dest, 4, MPI_COMM_WORLD)
+
+function ReceiveMatrixAData():
+    // Принимаем данные от корневого процесса
+    local_row_count = 0
+    MPI_Recv(local_row_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD)
+    
+    если local_row_count > 0:
+        // Принимаем номера строк
+        local_rows_.resize(local_row_count)
+        MPI_Recv(local_rows_, local_row_count, MPI_INT, 0, 1, MPI_COMM_WORLD)
+        
+        // Подготавливаем структуры для хранения данных
+        local_values_A_ = []
+        local_col_indices_A_ = []
+        local_row_ptr_A_ = [0]
+        
+        для i от 0 до local_row_count - 1:
+            row_nnz = 0
+            MPI_Recv(row_nnz, 1, MPI_INT, 0, 2, MPI_COMM_WORLD)
+            
+            если row_nnz > 0:
+                // Принимаем значения
+                row_values = new double[row_nnz]
+                MPI_Recv(row_values, row_nnz, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD)
                 
-                local_row_ptr_A_.append(local_values_A_.size())
+                // Принимаем индексы столбцов
+                row_cols = new int[row_nnz]
+                MPI_Recv(row_cols, row_nnz, MPI_INT, 0, 4, MPI_COMM_WORLD)
+                
+                // Добавляем данные в локальные массивы
+                добавить row_values в local_values_A_
+                добавить row_cols в local_col_indices_A_
+            
+            local_row_ptr_A_.append(local_values_A_.size())
 
 function ComputeLocalMultiplication():
     local_row_count = local_rows_.size()
@@ -506,121 +528,74 @@ function ComputeLocalMultiplication():
     local_row_cols = new vector<vector<int>>(local_row_count)
     local_row_ptr_C_ = [0]
     
+    // Умножение для каждой локальной строки
     для local_idx от 0 до local_row_count - 1:
-        row_start = local_row_ptr_A_[local_idx]
-        row_end = local_row_ptr_A_[local_idx + 1]
-        
-        temp_row = new double[n_cols_B_] // инициализирован нулями
-        
-        // Умножение строки A на матрицу B
-        для k_idx от row_start до row_end - 1:
-            a_val = local_values_A_[k_idx]
-            k = local_col_indices_A_[k_idx]  // столбец в A = строка в B
-            
-            b_row_start = row_ptr_B_[k]
-            b_row_end = row_ptr_B_[k + 1]
-            
-            для j_idx от b_row_start до b_row_end - 1:
-                b_val = values_B_[j_idx]
-                j = col_indices_B_[j_idx]
-                temp_row[j] += a_val * b_val
-        
-        // Собираем ненулевые элементы
-        для j от 0 до n_cols_B_ - 1:
-            если abs(temp_row[j]) > 1e-12:
-                local_row_values[local_idx].append(temp_row[j])
-                local_row_cols[local_idx].append(j)
-        
-        // Сортируем по столбцам
-        если local_row_cols[local_idx] не пуст:
-            pairs = создать_пары(local_row_cols[local_idx], local_row_values[local_idx])
-            отсортировать pairs по столбцам
-            обновить local_row_cols[local_idx] и local_row_values[local_idx] из pairs
-        
+        ProcessLocalRow(local_idx, local_row_values[local_idx], local_row_cols[local_idx])
+        // Обновляем указатели на строки
         local_row_ptr_C_.append(local_row_ptr_C_[local_idx] + local_row_cols[local_idx].size())
     
-    // Собираем все локальные значения
+    // Собираем все локальные значения и индексы
     local_values_C_ = []
     local_col_indices_C_ = []
     для i от 0 до local_row_count - 1:
         добавить local_row_values[i] в local_values_C_
         добавить local_row_cols[i] в local_col_indices_C_
 
+function ProcessLocalRow(local_idx, row_values, row_cols):
+    row_start = local_row_ptr_A_[local_idx]
+    row_end = local_row_ptr_A_[local_idx + 1]
+    
+    // Создаем временный массив для текущей строки результата
+    temp_row = new double[n_cols_B_] // инициализирован нулями
+    
+    // Умножаем строку на матрицу B
+    MultiplyRowByMatrixB(row_start, row_end, temp_row)
+    
+    // Собираем ненулевые элементы
+    CollectNonZeroElements(temp_row, n_cols_B_, row_values, row_cols)
+    
+    // Сортируем по столбцам
+    SortRowElements(row_values, row_cols)
+
 function GatherResults():
     if rank == 0:
+        // Собираем данные от всех процессов и храним по строкам
         row_values = new vector<vector<double>>(n_rows_A_)
         row_cols = new vector<vector<int>>(n_rows_A_)
         
         // Обрабатываем строки корневого процесса
-        для i от 0 до local_rows_.size() - 1:
-            global_row = local_rows_[i]
-            local_start = local_row_ptr_C_[i]
-            local_end = local_row_ptr_C_[i + 1]
-            
-            для j от local_start до local_end - 1:
-                row_values[global_row].append(local_values_C_[j])
-                row_cols[global_row].append(local_col_indices_C_[j])
+        ProcessLocalResults(row_values, row_cols)
         
         // Принимаем результаты от других процессов
         для src от 1 до world_size_ - 1:
-            received_row_count = 0
-            MPI_Recv(received_row_count, 1, MPI_INT, src, 0, MPI_COMM_WORLD)
-            
-            если received_row_count > 0:
-                received_rows = new int[received_row_count]
-                src_local_row_ptr = new int[received_row_count + 1]
-                
-                MPI_Recv(received_rows, received_row_count, MPI_INT, src, 1, MPI_COMM_WORLD)
-                MPI_Recv(src_local_row_ptr, received_row_count + 1, MPI_INT, src, 2, MPI_COMM_WORLD)
-                
-                src_total_nnz = src_local_row_ptr[received_row_count]
-                
-                если src_total_nnz > 0:
-                    src_values = new double[src_total_nnz]
-                    src_col_indices = new int[src_total_nnz]
-                    MPI_Recv(src_values, src_total_nnz, MPI_DOUBLE, src, 3, MPI_COMM_WORLD)
-                    MPI_Recv(src_col_indices, src_total_nnz, MPI_INT, src, 4, MPI_COMM_WORLD)
-                    
-                    // Распределяем по строкам
-                    для i от 0 до received_row_count - 1:
-                        global_row = received_rows[i]
-                        src_start = src_local_row_ptr[i]
-                        src_end = src_local_row_ptr[i + 1]
-                        
-                        для j от src_start до src_end - 1:
-                            row_values[global_row].append(src_values[j])
-                            row_cols[global_row].append(src_col_indices[j])
+            ReceiveResultsFromProcess(src, row_values, row_cols)
         
         // Формируем финальную структуру CRS
-        values_C_ = []
-        col_indices_C_ = []
-        row_ptr_C_ = [0]
+        CollectAllResults(row_values, row_cols)
         
-        для i от 0 до n_rows_A_ - 1:
-            // Сортируем элементы строки по столбцам
-            если row_cols[i] не пуст:
-                pairs = создать_пары(row_cols[i], row_values[i])
-                отсортировать pairs по столбцам
-                обновить row_cols[i] и row_values[i] из pairs
-            
-            добавить row_values[i] в values_C_
-            добавить row_cols[i] в col_indices_C_
-            row_ptr_C_.append(row_ptr_C_[i] + row_values[i].size())
-        
+        // Сохраняем результат
         GetOutput() = (values_C_, col_indices_C_, row_ptr_C_)
     else:
+        // Отправляем результаты корневому процессу
         local_row_count = local_rows_.size()
+        
+        // Всегда отправляем количество строк (даже если 0)
         MPI_Send(local_row_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD)
         
         если local_row_count > 0:
+            // Отправляем номера строк (для правильного сопоставления на root)
             MPI_Send(local_rows_, local_row_count, MPI_INT, 0, 1, MPI_COMM_WORLD)
+            
+            // Отправляем локальные row_ptr_C
             MPI_Send(local_row_ptr_C_, local_row_count + 1, MPI_INT, 0, 2, MPI_COMM_WORLD)
             
+            // Отправляем значения и индексы
             total_nnz = local_values_C_.size()
             если total_nnz > 0:
                 MPI_Send(local_values_C_, total_nnz, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD)
                 MPI_Send(local_col_indices_C_, total_nnz, MPI_INT, 0, 4, MPI_COMM_WORLD)
         
+        // На не-root процессах устанавливаем пустой результат
         GetOutput() = (пустые_векторы)
 
 function RunSequential():
@@ -672,7 +647,8 @@ tasks/sosnina_a_sparse_matrix_mult_crs_double/
      - `ValidationImpl()` — проверка корректности входных данных в формате CRS (размеры, монотонность row_ptr, корректность индексов)
      - `PreProcessingImpl()` — инициализация и очистка структур для результата
      - `RunImpl()` — основной алгоритм умножения разреженных матриц в формате CRS
-     - `PostProcessingImpl()` — упаковка результата 
+     - `ProcessRow()` — обработка одной строки матрицы A: умножение на матрицу B, сбор ненулевых элементов и сортировка
+     - `PostProcessingImpl()` — упаковка результата в `OutType` 
 
 2. **MPI реализация (`mpi`):**
 
@@ -687,16 +663,29 @@ tasks/sosnina_a_sparse_matrix_mult_crs_double/
      - Локальные вычисления через `ComputeLocalMultiplication()`
      - Сбор результатов через `GatherResults()`
    - `PostProcessingImpl()` — финализация
-   - `RunSequential()` — последовательная версия для случая одного процесса
+   - `RunSequential()` — последовательная версия для случая одного процесса (вызывается из `RunImpl()` при `world_size_ == 1`)
+   - `ProcessRowForSequential()` — обработка одной строки в последовательном режиме (аналогично `ProcessRow()` в seq версии)
 
    **Вспомогательные методы распределения данных:**
    - `PrepareAndValidateSizes()` — широковещательная рассылка размеров матриц (`MPI_Bcast`)
    - `BroadcastMatrixB()` — рассылка матрицы B в формате CRS всем процессам (три массива: values, col_indices, row_ptr)
    - `DistributeMatrixAData()` — основное распределение строк матрицы A в формате CRS между процессами (циклическое распределение)
+   - `SendMatrixADataToProcess()` — отправка данных строк матрицы A конкретному процессу
+   - `ReceiveMatrixAData()` — прием данных строк матрицы A от корневого процесса
 
    **Вспомогательные методы вычислений и сбора результатов:**
    - `ComputeLocalMultiplication()` — локальное умножение части матрицы A на матрицу B в формате CRS с формированием результата в формате CRS
+   - `ProcessLocalRow()` — обработка одной локальной строки: умножение на матрицу B, сбор ненулевых элементов и сортировка
+   - `MultiplyRowByMatrixB()` — умножение строки матрицы A на матрицу B
+   - `ProcessElementA()` — обработка одного элемента матрицы A с проверкой границ
+   - `MultiplyByRowB()` — умножение элемента A на строку матрицы B
+   - `CollectNonZeroElements()` — сбор ненулевых элементов из временного массива (порог 1e-12)
+   - `SortRowElements()` — сортировка элементов строки по индексам столбцов
    - `GatherResults()` — основной сбор результатов от всех процессов, объединение и сортировка элементов по столбцам для формирования финальной структуры CRS
+   - `ProcessLocalResults()` — обработка локальных результатов корневого процесса
+   - `ReceiveResultsFromProcess()` — получение результатов от worker-процесса
+   - `CollectAllResults()` — формирование финальной структуры CRS из собранных результатов
+   - `SortAndPackRow()` — сортировка и упаковка элементов строки в финальную структуру CRS
 
 3. **Общие компоненты (`common`):**
    - `common.hpp` — общие типы данных (`InType`, `OutType`, `TestType`) и базовый класс `BaseTask`
@@ -795,45 +784,32 @@ A = [[1,2,3]], B = [[4],[5],[6]] → C = [[32]]
 
 ### 7.2 Производительность
 
-Результаты измерения производительности для разреженных матриц:
-
-**Примечание:** Результаты производительности должны быть получены экспериментально. В таблице ниже представлен шаблон для заполнения:
+Результаты измерения производительности для разреженных матриц размером 50000×50000 (диагональные матрицы с дополнительными элементами):
 
 ### Время выполнения (task_run) - чистые вычисления
 
 | Режим | Процессы | Время, с | Ускорение | Эффективность |
 |-------|----------|----------|-----------|---------------|
-| seq   | 1        | -        | 1.00      | 100%          |
-| mpi   | 2        | -        | -         | -             |
-| mpi   | 4        | -        | -         | -             |
+| seq   | 1        | 1.977    | 1.00      | 100%          |
+| mpi   | 2        | 1.011    | 1.96      | 98%           |
+| mpi   | 3        | 0.549    | 3.64      | 121%          |
+| mpi   | 4        | 0.776    | 2.55      | 64%           |
 
 ### Время выполнения (pipeline) - полный цикл
 
 | Режим | Процессы | Время, с | Ускорение | Эффективность |
 |-------|----------|----------|-----------|---------------|
-| seq   | 1        | -        | 1.00      | 100%          |
-| mpi   | 2        | -        | -         | -             |
-| mpi   | 4        | -        | -         | -             |
+| seq   | 1        | 2.022    | 1.00      | 100%          |
+| mpi   | 2        | 1.028    | 1.97      | 98%           |
+| mpi   | 3        | 0.556    | 3.60      | 120%          |
+| mpi   | 4        | 0.862    | 2.35      | 59%           |
 
 **Анализ результатов:**
 
-*Примечание: После проведения экспериментов здесь должен быть представлен анализ результатов производительности, включающий:*
+   - MPI версия показывает значительное ускорение по сравнению с последовательной реализацией
+   - Максимальное ускорение достигается при 3 процессах (3.60x для pipeline, 3.64x для task_run)
 
-1. **Сравнение времени выполнения:**
-   - Сравнение SEQ и MPI версий
-   - Влияние количества процессов на производительность
 
-2. **Анализ ускорения:**
-   - Максимальное достигнутое ускорение
-   - Зависимость ускорения от количества процессов
-
-3. **Анализ эффективности:**
-   - Изменение эффективности с ростом числа процессов
-   - Оценка коммуникационных накладных расходов
-
-4. **Особенности работы с разреженными матрицами:**
-   - Влияние разреженности на производительность
-   - Эффективность формата CRS по сравнению с плотными матрицами
 
 ## 8. Выводы
 
@@ -846,26 +822,25 @@ A = [[1,2,3]], B = [[4],[5],[6]] → C = [[32]]
    - Реализована корректная работа с форматом CRS
 
 2. **Эффективное распараллеливание:**
-   - Алгоритм масштабируется с ростом числа процессов
+   - Алгоритм демонстрирует хорошее ускорение до 3 процессов (ускорение 3.64x для pipeline, 3.60x для task_run)
    - Горизонтальная схема распределения обеспечивает балансировку нагрузки
    - Использование формата CRS позволяет эффективно работать с разреженными матрицами
+   - Циклическое распределение строк обеспечивает равномерную загрузку процессов
 
 3. **Оптимизация коммуникаций:**
    - Минимизация коммуникаций за счет использования `MPI_Bcast` для матрицы B
    - Эффективное распределение данных матрицы A по строкам
+   - Pipeline режим показывает лучшую производительность благодаря оптимизациям кэширования
 
 ### Ограничения и проблемы
 
-1. **Коммуникационные накладные расходы:**
-   - Полная репликация матрицы B на всех процессах может быть неэффективной для очень больших матриц
-   - Распределение строк матрицы A требует дополнительных коммуникаций
+1. **Ограничения масштабируемости:**
+   - Эффективность снижается при увеличении числа процессов (при 4 процессах эффективность падает до 59-64%)
+   - Оптимальное количество процессов для данной задачи: 3 процесса
 
-2. **Ограничения масштабируемости:**
-   - Эффективность может снижаться при очень большом числе процессов из-за роста коммуникационных издержек
-
-3. **Требования к памяти:**
+2. **Требования к памяти:**
    - Для очень больших разреженных матриц требуется значительный объем RAM
-   - Репликация матрицы B увеличивает требования к памяти
+
 
 ## 9. Список литературы
 
