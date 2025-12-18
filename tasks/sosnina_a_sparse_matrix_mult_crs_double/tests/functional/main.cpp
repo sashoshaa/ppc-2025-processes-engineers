@@ -29,13 +29,10 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
 
-    // Получаем плотные матрицы из тестовых данных
     dense_A_ = std::get<1>(params);
     dense_B_ = std::get<2>(params);
     dense_expected_ = std::get<3>(params);
 
-    // Конвертируем плотные матрицы в CRS формат
-    // Для пустых матриц создаем минимальные CRS структуры
     if (dense_A_.empty()) {
       row_ptr_A_ = {0};
       values_A_.clear();
@@ -56,15 +53,12 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
   bool CheckTestOutputData(OutType &output_data) final {
     auto &[values, col_indices, row_ptr] = output_data;
 
-    // Проверяем базовую корректность CRS структур
     if (row_ptr.empty()) {
-      // На не-root процессах в MPI пустой результат всегда допустим
       int rank = 0;
       MPI_Comm_rank(MPI_COMM_WORLD, &rank);
       if (rank != 0) {
         return true;
       }
-      // На root процессе пустой результат допустим только если ожидаемый результат тоже нулевой
       bool all_zeros = true;
       for (const auto &row : dense_expected_) {
         for (double val : row) {
@@ -88,16 +82,13 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
       return false;
     }
 
-    // Проверяем монотонность row_ptr
     for (size_t i = 0; i < row_ptr.size() - 1; i++) {
       if (row_ptr[i] > row_ptr[i + 1]) {
         return false;
       }
     }
 
-    // Если результат пустой (все нули), это допустимо
     if (values.empty() && row_ptr.back() == 0) {
-      // Проверяем, должен ли результат быть нулевым
       bool all_zeros = true;
       for (const auto &row : dense_expected_) {
         for (double val : row) {
@@ -110,10 +101,9 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
           break;
         }
       }
-      return all_zeros;  // Если ожидаемый результат нулевой, то пустой CRS корректен
+      return all_zeros;
     }
 
-    // Конвертируем результат из CRS в плотный формат для сравнения
     std::vector<std::vector<double>> dense_result;
     int n_rows = static_cast<int>(dense_expected_.size());
     int n_cols = dense_expected_.empty() ? 0 : static_cast<int>(dense_expected_[0].size());
@@ -122,7 +112,6 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
       return false;
     }
 
-    // Проверяем размеры
     if (dense_result.size() != dense_expected_.size()) {
       return false;
     }
@@ -130,7 +119,6 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
       return false;
     }
 
-    // Используем допуск для сравнения double
     const double tolerance = 1e-10;
 
     for (size_t i = 0; i < dense_expected_.size(); i++) {
@@ -153,7 +141,6 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
   }
 
  private:
-  // Конвертация плотной матрицы в CRS формат
   static void ConvertDenseToCRS(const std::vector<std::vector<double>> &dense, std::vector<double> &values,
                                 std::vector<int> &col_indices, std::vector<int> &row_ptr) {
     values.clear();
@@ -162,20 +149,17 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
     row_ptr.push_back(0);
 
     for (const auto &row : dense) {
-      // Собираем ненулевые элементы строки с их индексами
       std::vector<std::pair<int, double>> row_elements;
       for (size_t j = 0; j < row.size(); j++) {
-        if (std::abs(row[j]) > 1e-12) {  // Не нулевой элемент
+        if (std::abs(row[j]) > 1e-12) {
           row_elements.emplace_back(static_cast<int>(j), row[j]);
         }
       }
 
-      // Сортируем по индексам столбцов (требование CRS формата)
       std::ranges::sort(row_elements, [](const std::pair<int, double> &a, const std::pair<int, double> &b) {
         return a.first < b.first;
       });
 
-      // Добавляем отсортированные элементы
       for (const auto &elem : row_elements) {
         col_indices.push_back(elem.first);
         values.push_back(elem.second);
@@ -185,11 +169,9 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
     }
   }
 
-  // Конвертация из CRS в плотный формат с проверкой ошибок
   static bool ConvertCRSToDense(const std::vector<double> &values, const std::vector<int> &col_indices,
                                 const std::vector<int> &row_ptr, int n_rows, int n_cols,
                                 std::vector<std::vector<double>> &dense) {
-    // Проверяем корректность входных данных
     if (row_ptr.empty()) {
       dense.assign(n_rows, std::vector<double>(n_cols, 0.0));
       return true;
@@ -205,7 +187,6 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
       return false;
     }
 
-    // Проверяем корректность индексов
     for (size_t i = 0; i < row_ptr.size() - 1; i++) {
       if (row_ptr[i] < 0 || static_cast<size_t>(row_ptr[i]) > values.size() || row_ptr[i + 1] < 0 ||
           static_cast<size_t>(row_ptr[i + 1]) > values.size() || row_ptr[i] > row_ptr[i + 1]) {
@@ -220,7 +201,6 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
       int start = row_ptr[i];
       int end = row_ptr[i + 1];
 
-      // Проверяем границы
       if (start < 0 || static_cast<size_t>(end) > values.size() || start > end) {
         continue;
       }
@@ -240,12 +220,10 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
     return true;
   }
 
-  // Плотные матрицы (для тестовых данных)
   std::vector<std::vector<double>> dense_A_;
   std::vector<std::vector<double>> dense_B_;
   std::vector<std::vector<double>> dense_expected_;
 
-  // Данные в CRS формате
   std::vector<double> values_A_;
   std::vector<int> col_indices_A_;
   std::vector<int> row_ptr_A_;
@@ -257,19 +235,14 @@ class SosninaAMatrixMultCRSFuncTests : public ppc::util::BaseRunFuncTests<InType
 
 namespace {
 
-// Functional Tests
 TEST_P(SosninaAMatrixMultCRSFuncTests, FunctionalTests) {
   ExecuteTest(GetParam());
 }
 
-// Coverage Tests
 TEST_P(SosninaAMatrixMultCRSFuncTests, CoverageTests) {
   ExecuteTest(GetParam());
 }
 
-// Тестовые случаи: (id, matrixA, matrixB, expected)
-// Используем плотные матрицы для удобства задания тестовых данных,
-// они автоматически конвертируются в CRS формат в SetUp() перед выполнением теста
 const std::array<TestType, 34> kFunctionalTests = {
     // 1. Базовое умножение 2x2
     std::make_tuple(1, std::vector<std::vector<double>>{{1, 2}, {3, 4}},

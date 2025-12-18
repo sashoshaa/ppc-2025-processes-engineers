@@ -48,7 +48,6 @@ class SosninaAMatrixMultCRSMPI : public BaseTask {
   static void SortAndPackRow(int row_idx, std::vector<std::vector<double>> &row_values,
                              std::vector<std::vector<int>> &row_cols);
 
-  // Данные в формате CRS
   std::vector<double> values_A_;
   std::vector<int> col_indices_A_;
   std::vector<int> row_ptr_A_;
@@ -60,12 +59,10 @@ class SosninaAMatrixMultCRSMPI : public BaseTask {
   std::vector<int> row_ptr_B_;
   int n_cols_B_;
 
-  // Результат
   std::vector<double> values_C_;
   std::vector<int> col_indices_C_;
   std::vector<int> row_ptr_C_;
 
-  // Локальные данные для процесса
   std::vector<int> local_rows_;
   std::vector<double> local_values_A_;
   std::vector<int> local_col_indices_A_;

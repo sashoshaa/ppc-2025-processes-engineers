@@ -27,20 +27,17 @@ class SosninaAMatrixMultCRSSEQ : public BaseTask {
 
   InType input_;
 
-  // Данные матрицы A
   std::vector<double> values_A_;
   std::vector<int> col_indices_A_;
   std::vector<int> row_ptr_A_;
   int n_rows_A_;
   int n_cols_A_;
 
-  // Данные матрицы B
   std::vector<double> values_B_;
   std::vector<int> col_indices_B_;
   std::vector<int> row_ptr_B_;
   int n_cols_B_;
 
-  // Результат (матрица C = A * B)
   std::vector<double> values_C_;
   std::vector<int> col_indices_C_;
   std::vector<int> row_ptr_C_;
