@@ -849,4 +849,4 @@ A = [[1,2,3]], B = [[4],[5],[6]] → C = [[32]]
 3. Сысоев А. В. Лекции по параллельному программированию. — Н. Новгород: ННГУ, 2025.
 4. MPI Forum. MPI: A Message-Passing Interface Standard, Version 4.0. 2021. https://www.mpi-forum.org/docs/
 5. Saad, Y. Iterative Methods for Sparse Linear Systems. 2nd ed. SIAM, 2003.
-6. Davis, T. A. Direct Methods for Sparse Linear Systems. SIAM, 2006.
+
